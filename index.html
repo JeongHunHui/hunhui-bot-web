@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="훈희봇">
+<link rel="manifest" href="/manifest.json">
+<title>훈희봇</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: #0f0f1a;
+    color: #e0e0ff;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: #1a1a2e;
+    border: 1px solid #2d2d4e;
+    border-radius: 24px;
+    padding: 32px 24px;
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: 0 8px 32px #0008;
+  }
+  h1 {
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #a78bfa;
+    letter-spacing: 0.05em;
+  }
+  h1 span { font-size: 1.8rem; display: block; margin-bottom: 4px; }
+  textarea {
+    background: #0f0f1a;
+    border: 1.5px solid #3d3d6e;
+    border-radius: 14px;
+    color: #e0e0ff;
+    font-size: 1rem;
+    padding: 14px 16px;
+    resize: vertical;
+    min-height: 90px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea:focus { border-color: #7c3aed; }
+  textarea::placeholder { color: #555580; }
+  .btn {
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 14px;
+    transition: all 0.15s;
+    width: 100%;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-send {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: #fff;
+  }
+  .btn-send:disabled { background: #2d2d4e; color: #555; cursor: not-allowed; }
+  .btn-voice {
+    background: linear-gradient(135deg, #059669, #0d9488);
+    color: #fff;
+    font-size: 1.1rem;
+  }
+  .btn-voice.listening {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 #dc262660; }
+    50% { box-shadow: 0 0 0 10px #dc262600; }
+  }
+  .status {
+    text-align: center;
+    font-size: 0.85rem;
+    min-height: 20px;
+    color: #7c85a0;
+  }
+  .status.ok { color: #34d399; }
+  .status.err { color: #f87171; }
+  .divider { border: none; border-top: 1px solid #2d2d4e; }
+  .settings-toggle {
+    background: none;
+    border: 1px solid #2d2d4e;
+    border-radius: 10px;
+    color: #7c85a0;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 8px 14px;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .settings-toggle:hover { border-color: #7c3aed; color: #a78bfa; }
+  .settings { display: none; flex-direction: column; gap: 10px; }
+  .settings.open { display: flex; }
+  .settings label { font-size: 0.78rem; color: #888aaa; margin-bottom: 2px; display: block; }
+  .settings input {
+    background: #0f0f1a;
+    border: 1.5px solid #3d3d6e;
+    border-radius: 10px;
+    color: #e0e0ff;
+    font-size: 0.88rem;
+    padding: 10px 12px;
+    width: 100%;
+    outline: none;
+  }
+  .settings input:focus { border-color: #7c3aed; }
+  .btn-save {
+    background: #1e3a5f;
+    color: #7dd3fc;
+    border: 1px solid #2563eb;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1><span>🤖</span>훈희봇</h1>
+
+  <button class="btn btn-voice" id="voiceBtn" onclick="toggleVoice()">
+    🎤 음성 입력
+  </button>
+
+  <textarea id="msgInput" placeholder="메시지를 입력하거나 음성 버튼을 누르세요..."></textarea>
+
+  <button class="btn btn-send" id="sendBtn" onclick="sendMsg()">
+    📤 Slack 전송
+  </button>
+
+  <p class="status" id="status"></p>
+
+  <hr class="divider">
+  <button class="settings-toggle" onclick="toggleSettings()">⚙️ 설정</button>
+  <div class="settings" id="settings">
+    <div>
+      <label>Slack Bot Token (xoxb-...)</label>
+      <input type="password" id="cfgToken" placeholder="xoxb-...">
+    </div>
+    <div>
+      <label>Channel ID (C...)</label>
+      <input type="text" id="cfgChannel" placeholder="C0AJLQUM2KA">
+    </div>
+    <button class="btn-save" onclick="saveSettings()">💾 저장</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let recognition = null;
+let listening = false;
+
+// Load settings
+function loadSettings() {
+  $('cfgToken').value = localStorage.getItem('slack_token') || '';
+  $('cfgChannel').value = localStorage.getItem('slack_channel') || '';
+}
+function saveSettings() {
+  localStorage.setItem('slack_token', $('cfgToken').value.trim());
+  localStorage.setItem('slack_channel', $('cfgChannel').value.trim());
+  setStatus('설정 저장됨 ✓', 'ok');
+  setTimeout(() => setStatus(''), 2000);
+}
+function toggleSettings() {
+  $('settings').classList.toggle('open');
+}
+
+function setStatus(msg, cls = '') {
+  const s = $('status');
+  s.textContent = msg;
+  s.className = 'status ' + cls;
+}
+
+async function sendMsg() {
+  const token = localStorage.getItem('slack_token');
+  const channel = localStorage.getItem('slack_channel');
+  const text = $('msgInput').value.trim();
+  if (!token || !channel) { setStatus('설정에서 토큰과 채널을 먼저 입력해주세요', 'err'); $('settings').classList.add('open'); return; }
+  if (!text) { setStatus('메시지를 입력하세요', 'err'); return; }
+  $('sendBtn').disabled = true;
+  setStatus('전송 중...');
+  try {
+    const res = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel, text, as_user: true })
+    });
+    const data = await res.json();
+    if (data.ok) { setStatus('✓ 전송 완료!', 'ok'); $('msgInput').value = ''; }
+    else { setStatus('오류: ' + data.error, 'err'); }
+  } catch (e) { setStatus('네트워크 오류', 'err'); }
+  $('sendBtn').disabled = false;
+}
+
+function toggleVoice() {
+  if (listening) { stopVoice(); return; }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { setStatus('음성 인식 미지원 브라우저', 'err'); return; }
+  recognition = new SpeechRecognition();
+  recognition.lang = 'ko-KR';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.onstart = () => {
+    listening = true;
+    $('voiceBtn').textContent = '🔴 듣는 중... (탭하면 중지)';
+    $('voiceBtn').classList.add('listening');
+    setStatus('말씀하세요...');
+  };
+  recognition.onresult = e => {
+    const text = e.results[0][0].transcript;
+    $('msgInput').value = text;
+    setStatus('인식 완료: ' + text, 'ok');
+  };
+  recognition.onerror = e => { setStatus('음성 오류: ' + e.error, 'err'); };
+  recognition.onend = () => { stopVoice(); };
+  recognition.start();
+}
+function stopVoice() {
+  listening = false;
+  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+  $('voiceBtn').textContent = '🎤 음성 입력';
+  $('voiceBtn').classList.remove('listening');
+}
+
+// Enter to send
+$('msgInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+});
+
+loadSettings();
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
