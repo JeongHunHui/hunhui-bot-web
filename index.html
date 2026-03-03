@@ -2,18 +2,15 @@
 <html lang="ko">
 <head>
 <script>
-// Tailscale 네트워크에서만 접근 허용
-// 100.64.0.0/10 대역 체크 (클라이언트 IP는 fetch로 확인)
+// 앱 WebView에서만 접근 허용
 (function() {
-  // 현재 호스트가 Tailscale MagicDNS 또는 100.x.x.x이면 허용
+  var ua = navigator.userAgent || '';
   var host = window.location.hostname;
-  var isTailscale = /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host) ||
-                    host.endsWith('.ts.net') ||
-                    host === 'localhost' ||
-                    host === '127.0.0.1';
-  if (!isTailscale) {
+  var isApp = typeof window.HunhuiNative !== 'undefined' || ua.indexOf('HunhuiBot-Android') !== -1;
+  var isDev = host === 'localhost' || host === '127.0.0.1';
+  if (!isApp && !isDev) {
     document.addEventListener('DOMContentLoaded', function() {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f0f1a;color:#e0e0ff;font-family:sans-serif;text-align:center;padding:20px"><div><div style="font-size:48px;margin-bottom:16px">🔒</div><h1 style="font-size:24px;margin-bottom:12px">접근 제한됨</h1><p style="color:#888;font-size:14px">Tailscale VPN 연결 후 이용 가능합니다</p></div></div>';
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f0f1a;color:#e0e0ff;font-family:sans-serif;text-align:center;padding:20px"><div><div style="font-size:56px;margin-bottom:16px">📱</div><h1 style="font-size:22px;font-weight:700;color:#a78bfa;margin-bottom:12px">앱에서만 접속 가능해요</h1><p style="color:#555580;font-size:14px;line-height:1.6">훈희봇은 전용 앱을 통해서만<br>이용할 수 있어요</p></div></div>';
     });
   }
 })();
@@ -51,13 +48,7 @@
     gap: 20px;
     box-shadow: 0 8px 32px #0008;
   }
-  h1 {
-    text-align: center;
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: #a78bfa;
-    letter-spacing: 0.05em;
-  }
+  h1 { text-align: center; font-size: 1.4rem; font-weight: 700; color: #a78bfa; letter-spacing: 0.05em; }
   h1 span { font-size: 1.8rem; display: block; margin-bottom: 4px; }
   textarea {
     background: #0f0f1a;
@@ -74,98 +65,34 @@
   }
   textarea:focus { border-color: #7c3aed; }
   textarea::placeholder { color: #555580; }
-  .btn {
-    border: none;
-    border-radius: 16px;
-    cursor: pointer;
-    font-size: 1rem;
-    font-weight: 600;
-    padding: 14px;
-    transition: all 0.15s;
-    width: 100%;
-  }
+  .btn { border: none; border-radius: 16px; cursor: pointer; font-size: 1rem; font-weight: 600; padding: 14px; transition: all 0.15s; width: 100%; }
   .btn:active { transform: scale(0.97); }
-  .btn-send {
-    background: linear-gradient(135deg, #7c3aed, #4f46e5);
-    color: #fff;
-  }
+  .btn-send { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; }
   .btn-send:disabled { background: #2d2d4e; color: #555; cursor: not-allowed; }
-  .btn-voice {
-    background: linear-gradient(135deg, #059669, #0d9488);
-    color: #fff;
-    font-size: 1.1rem;
-  }
-  .btn-voice.listening {
-    background: linear-gradient(135deg, #dc2626, #b91c1c);
-    animation: pulse 1.2s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%,100% { box-shadow: 0 0 0 0 #dc262660; }
-    50% { box-shadow: 0 0 0 10px #dc262600; }
-  }
-  .status {
-    text-align: center;
-    font-size: 0.85rem;
-    min-height: 20px;
-    color: #7c85a0;
-  }
+  .btn-voice { background: linear-gradient(135deg, #059669, #0d9488); color: #fff; font-size: 1.1rem; }
+  .btn-voice.listening { background: linear-gradient(135deg, #dc2626, #b91c1c); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 #dc262660; } 50% { box-shadow: 0 0 0 10px #dc262600; } }
+  .status { text-align: center; font-size: 0.85rem; min-height: 20px; color: #7c85a0; }
   .status.ok { color: #34d399; }
   .status.err { color: #f87171; }
   .divider { border: none; border-top: 1px solid #2d2d4e; }
-  .settings-toggle {
-    background: none;
-    border: 1px solid #2d2d4e;
-    border-radius: 10px;
-    color: #7c85a0;
-    cursor: pointer;
-    font-size: 0.8rem;
-    padding: 8px 14px;
-    text-align: center;
-    transition: all 0.2s;
-  }
+  .settings-toggle { background: none; border: 1px solid #2d2d4e; border-radius: 10px; color: #7c85a0; cursor: pointer; font-size: 0.8rem; padding: 8px 14px; text-align: center; transition: all 0.2s; }
   .settings-toggle:hover { border-color: #7c3aed; color: #a78bfa; }
   .settings { display: none; flex-direction: column; gap: 10px; }
   .settings.open { display: flex; }
   .settings label { font-size: 0.78rem; color: #888aaa; margin-bottom: 2px; display: block; }
-  .settings input {
-    background: #0f0f1a;
-    border: 1.5px solid #3d3d6e;
-    border-radius: 10px;
-    color: #e0e0ff;
-    font-size: 0.88rem;
-    padding: 10px 12px;
-    width: 100%;
-    outline: none;
-  }
+  .settings input { background: #0f0f1a; border: 1.5px solid #3d3d6e; border-radius: 10px; color: #e0e0ff; font-size: 0.88rem; padding: 10px 12px; width: 100%; outline: none; }
   .settings input:focus { border-color: #7c3aed; }
-  .btn-save {
-    background: #1e3a5f;
-    color: #7dd3fc;
-    border: 1px solid #2563eb;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 600;
-    padding: 10px;
-  }
+  .btn-save { background: #1e3a5f; color: #7dd3fc; border: 1px solid #2563eb; border-radius: 10px; cursor: pointer; font-size: 0.85rem; font-weight: 600; padding: 10px; }
 </style>
 </head>
 <body>
 <div class="card">
   <h1><span>🤖</span>훈희봇</h1>
-
-  <button class="btn btn-voice" id="voiceBtn" onclick="toggleVoice()">
-    🎤 음성 입력
-  </button>
-
+  <button class="btn btn-voice" id="voiceBtn" onclick="toggleVoice()">🎤 음성 입력</button>
   <textarea id="msgInput" placeholder="메시지를 입력하거나 음성 버튼을 누르세요..."></textarea>
-
-  <button class="btn btn-send" id="sendBtn" onclick="sendMsg()">
-    📤 Slack 전송
-  </button>
-
+  <button class="btn btn-send" id="sendBtn" onclick="sendMsg()">📤 Slack 전송</button>
   <p class="status" id="status"></p>
-
   <hr class="divider">
   <button class="settings-toggle" onclick="toggleSettings()">⚙️ 설정</button>
   <div class="settings" id="settings">
@@ -182,11 +109,33 @@
 </div>
 
 <script>
-const $ = id => document.getElementById(id);
-let recognition = null;
-let listening = false;
+var $ = function(id) { return document.getElementById(id); };
+var recognition = null;
+var listening = false;
 
-// Load settings
+// Native callbacks (called from Android via evaluateJavascript)
+window.HunhuiNativeCallback = {
+  onVoiceResult: function(text) {
+    $('msgInput').value = text;
+    setStatus('인식 완료: ' + text, 'ok');
+    stopVoiceUI();
+  },
+  onVoiceError: function(error) {
+    setStatus('음성 오류: ' + error, 'err');
+    stopVoiceUI();
+  },
+  onVoiceStateChanged: function(state) {
+    if (state === 'listening') {
+      listening = true;
+      $('voiceBtn').textContent = '🔴 듣는 중... (탭하면 중지)';
+      $('voiceBtn').classList.add('listening');
+      setStatus('말씀하세요...');
+    } else {
+      stopVoiceUI();
+    }
+  }
+};
+
 function loadSettings() {
   $('cfgToken').value = localStorage.getItem('slack_token') || '';
   $('cfgChannel').value = localStorage.getItem('slack_channel') || '';
@@ -195,33 +144,30 @@ function saveSettings() {
   localStorage.setItem('slack_token', $('cfgToken').value.trim());
   localStorage.setItem('slack_channel', $('cfgChannel').value.trim());
   setStatus('설정 저장됨 ✓', 'ok');
-  setTimeout(() => setStatus(''), 2000);
+  setTimeout(function() { setStatus(''); }, 2000);
 }
-function toggleSettings() {
-  $('settings').classList.toggle('open');
-}
-
-function setStatus(msg, cls = '') {
-  const s = $('status');
+function toggleSettings() { $('settings').classList.toggle('open'); }
+function setStatus(msg, cls) {
+  var s = $('status');
   s.textContent = msg;
-  s.className = 'status ' + cls;
+  s.className = 'status ' + (cls || '');
 }
 
 async function sendMsg() {
-  const token = localStorage.getItem('slack_token');
-  const channel = localStorage.getItem('slack_channel');
-  const text = $('msgInput').value.trim();
+  var token = localStorage.getItem('slack_token');
+  var channel = localStorage.getItem('slack_channel');
+  var text = $('msgInput').value.trim();
   if (!token || !channel) { setStatus('설정에서 토큰과 채널을 먼저 입력해주세요', 'err'); $('settings').classList.add('open'); return; }
   if (!text) { setStatus('메시지를 입력하세요', 'err'); return; }
   $('sendBtn').disabled = true;
   setStatus('전송 중...');
   try {
-    const res = await fetch('https://slack.com/api/chat.postMessage', {
+    var res = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel, text, as_user: true })
+      body: JSON.stringify({ channel: channel, text: text, as_user: true })
     });
-    const data = await res.json();
+    var data = await res.json();
     if (data.ok) { setStatus('✓ 전송 완료!', 'ok'); $('msgInput').value = ''; }
     else { setStatus('오류: ' + data.error, 'err'); }
   } catch (e) { setStatus('네트워크 오류', 'err'); }
@@ -230,44 +176,52 @@ async function sendMsg() {
 
 function toggleVoice() {
   if (listening) { stopVoice(); return; }
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) { setStatus('음성 인식 미지원 브라우저', 'err'); return; }
+  // 네이티브 STT (Android WebView)
+  if (typeof window.HunhuiNative !== 'undefined') {
+    window.HunhuiNative.startVoice();
+    return;
+  }
+  // 웹 SpeechRecognition 폴백
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { setStatus('음성 인식 미지원', 'err'); return; }
   recognition = new SpeechRecognition();
   recognition.lang = 'ko-KR';
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
-  recognition.onstart = () => {
+  recognition.onstart = function() {
     listening = true;
     $('voiceBtn').textContent = '🔴 듣는 중... (탭하면 중지)';
     $('voiceBtn').classList.add('listening');
     setStatus('말씀하세요...');
   };
-  recognition.onresult = e => {
-    const text = e.results[0][0].transcript;
+  recognition.onresult = function(e) {
+    var text = e.results[0][0].transcript;
     $('msgInput').value = text;
     setStatus('인식 완료: ' + text, 'ok');
   };
-  recognition.onerror = e => { setStatus('음성 오류: ' + e.error, 'err'); };
-  recognition.onend = () => { stopVoice(); };
+  recognition.onerror = function(e) { setStatus('음성 오류: ' + e.error, 'err'); };
+  recognition.onend = function() { stopVoiceUI(); };
   recognition.start();
 }
 function stopVoice() {
-  listening = false;
+  if (typeof window.HunhuiNative !== 'undefined') { window.HunhuiNative.stopVoice(); }
   if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+  stopVoiceUI();
+}
+function stopVoiceUI() {
+  listening = false;
   $('voiceBtn').textContent = '🎤 음성 입력';
   $('voiceBtn').classList.remove('listening');
 }
 
-// Enter to send
-$('msgInput').addEventListener('keydown', e => {
+$('msgInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
 });
 
 loadSettings();
 
-// Register service worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js').catch(function() {});
 }
 </script>
 </body>
