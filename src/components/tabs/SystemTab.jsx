@@ -2,60 +2,63 @@ import { useState } from 'react';
 import { useApi } from '../../hooks/useApi.js';
 import { api } from '../../api.js';
 
-function Gauge({ label, pct, val, extra }) {
-  const p = Math.min(100, Math.max(0, pct || 0));
-  const color = p > 85 ? '#ef4444' : p > 60 ? '#fbbf24' : '#10b981';
+function Gauge({ label, pct, detail }) {
+  const color = pct > 85 ? 'var(--r)' : pct > 60 ? 'var(--y)' : 'var(--g)';
   return (
     <div className="gauge-row">
       <span className="gauge-label">{label}</span>
       <div className="gauge-bar">
-        <div className="gauge-fill" style={{ width: `${p}%`, background: color }} />
+        <div className="gauge-fill" style={{ width: `${Math.min(pct, 100)}%`, background: color }} />
       </div>
-      <span className="gauge-val">{val}</span>
-      {extra && <span style={{fontSize:'.68rem',color:'var(--m)',width:48,textAlign:'right'}}>{extra}</span>}
+      <span className="gauge-val mono">{detail}</span>
     </div>
   );
 }
 
-function parseSessionText(text) {
-  if (!text) return {};
-  const r = {};
+function parseSessionStatus(text) {
+  if (!text) return null;
+  const result = {};
   for (const line of text.split('\n')) {
-    const [k, ...v] = line.split(':');
-    if (k && v.length) {
-      const key = k.trim().toLowerCase();
-      const val = v.join(':').trim();
-      if (key === 'session') r.session = val;
-      else if (key === 'model') r.model = val;
-      else if (key.includes('context')) r.context = val;
-      else if (key.includes('cost')) r.cost = val;
-      else if (key.includes('time')) r.time = val;
-      else if (key.includes('channel')) r.channel = val;
+    const modelMatch = line.match(/Model:\s*(\S+)/i);
+    if (modelMatch) result.model = modelMatch[1];
+    const tokenMatch = line.match(/([\d,]+)\s*tokens/i);
+    if (tokenMatch) result.tokens = tokenMatch[1];
+    const costMatch = line.match(/\$[\d.]+/);
+    if (costMatch) result.cost = costMatch[0];
+    if (/session/i.test(line) && /:/.test(line) && !result.session) {
+      result.session = line.split(/:\s*/).slice(1).join(':').trim();
+    }
+    if (/time/i.test(line) && !/uptime/i.test(line)) {
+      const v = line.split(/Time:\s*/i).pop()?.trim();
+      if (v) result.time = v;
     }
   }
-  return r;
+  return Object.keys(result).length ? result : null;
 }
 
-function formatTokens(n) {
+function formatUptime(str) {
+  if (!str) return '-';
+  const m = str.match(/(\d+)h\s*(\d+)m/);
+  if (!m) return str;
+  const hours = parseInt(m[1]);
+  const days = Math.floor(hours / 24);
+  const rem = hours % 24;
+  return days > 0 ? `${days}d ${rem}h ${m[2]}m` : str;
+}
+
+function fmtTokens(n) {
   if (!n) return '0';
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-  if (n >= 1_000) return (n / 1_000).toFixed(0) + 'K';
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
   return String(n);
-}
-
-function formatCost(n) {
-  if (!n || n === 0) return '$0.00';
-  if (n < 0.01) return '<$0.01';
-  return '$' + n.toFixed(2);
 }
 
 export default function SystemTab() {
   const { data: st, loading: stL, reload: stR } = useApi(api.status, [], 30000);
   const { data: sys, loading: sysL, reload: sysR } = useApi(api.system, [], 10000);
   const { data: claude, loading: claudeL } = useApi(api.claudeStatus, [], 60000);
-  const { data: sst } = useApi(api.sessionStatus, [], 30000);
-  const { data: token } = useApi(api.tokenUsage, [], 30000);
-  const { data: today } = useApi(api.todayStats, [], 60000);
+  const { data: sst, loading: sstL } = useApi(api.sessionStatus, [], 30000);
+  const { data: stats, loading: statsL } = useApi(api.todayStats, [], 60000);
   const [restarting, setRestarting] = useState(false);
 
   async function restart() {
@@ -65,43 +68,27 @@ export default function SystemTab() {
   }
 
   const isOk = st?.ok && st?.gateway;
-  const sess = parseSessionText(sst?.text);
-
-  // Parse context tokens for progress bar
-  let ctxUsed = 0, ctxMax = 0;
-  if (sess.context) {
-    const m = sess.context.match(/([\d,]+)\s*\/\s*([\d,]+)/);
-    if (m) {
-      ctxUsed = parseInt(m[1].replace(/,/g, ''));
-      ctxMax = parseInt(m[2].replace(/,/g, ''));
-    }
-  }
-  const ctxPct = ctxMax > 0 ? Math.round(ctxUsed / ctxMax * 100) : 0;
+  const sessionInfo = parseSessionStatus(sst?.text);
 
   return (
-    <div className="tab-content animate-in">
-      {/* Section 1: OpenClaw Status */}
+    <div className="tab-content">
+      {/* OpenClaw + 서버 상태 */}
       <div className={`card ${isOk ? 'glow-green' : 'glow-red'}`}>
-        <div className="card-title">
-          OpenClaw 서버
-          <button className="btn-refresh" onClick={stR}>↻</button>
-        </div>
-        {stL && !st ? <div className="loading">확인 중...</div> : (
+        <div className="card-title">OpenClaw 상태 <button className="btn-refresh" onClick={stR}>↻</button></div>
+        {stL ? <p className="loading">확인 중...</p> : (
           <>
-            <div className="status-row" style={{marginBottom:8}}>
-              <div className={`dot ${isOk ? 'green' : 'red'} ${isOk ? '' : 'pulse'}`} />
+            <div className="status-row" style={{marginBottom:10}}>
+              <div className={`dot ${isOk ? 'green' : 'red'} ${isOk ? 'pulse' : ''}`} />
               <span className="status-label">{isOk ? '정상 동작 중' : '응답 없음'}</span>
-              {st?.pid && <span className="status-sub">PID {st.pid}</span>}
             </div>
-            {isOk && (
-              <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:4}}>
-                {st?.url && <div style={{fontSize:'.73rem',color:'var(--m)'}}>Gateway: <span className="mono" style={{color:'var(--pl)'}}>{st.url}</span></div>}
-                {(claude?.model || token?.model) && <div style={{fontSize:'.73rem',color:'var(--m)'}}>모델: <span style={{color:'var(--t)'}}>{claude?.model || token?.model}</span></div>}
-                {claude?.version && <div style={{fontSize:'.73rem',color:'var(--m)'}}>Claude: <span style={{color:'var(--t)'}}>{claude.version}</span></div>}
-              </div>
-            )}
+            <div style={{display:'grid',gridTemplateColumns:'auto 1fr',gap:'4px 12px',fontSize:'.78rem'}}>
+              {st?.pid && <><span style={{color:'var(--m)'}}>PID</span><span className="mono">{st.pid}</span></>}
+              {st?.url && <><span style={{color:'var(--m)'}}>Gateway</span><span className="mono" style={{fontSize:'.72rem'}}>{st.url}</span></>}
+              {!claudeL && claude?.model && <><span style={{color:'var(--m)'}}>모델</span><span className="mono">{claude.model}</span></>}
+              {!claudeL && claude?.version && <><span style={{color:'var(--m)'}}>Claude 버전</span><span className="mono">{claude.version}</span></>}
+            </div>
             {!isOk && (
-              <button className="btn btn-danger" onClick={restart} disabled={restarting} style={{marginTop:10}}>
+              <button className="btn btn-danger" onClick={restart} disabled={restarting} style={{marginTop:12}}>
                 {restarting ? '재시작 중...' : '재시작'}
               </button>
             )}
@@ -109,91 +96,59 @@ export default function SystemTab() {
         )}
       </div>
 
-      {/* Section 2: Mac mini Resources */}
+      {/* Mac mini 리소스 게이지 */}
       <div className="card">
-        <div className="card-title">
-          Mac mini 리소스
-          <button className="btn-refresh" onClick={sysR}>↻</button>
-        </div>
-        {sysL && !sys ? <div className="loading">로딩 중...</div> : sys?.ok ? (
+        <div className="card-title">Mac mini 리소스 <button className="btn-refresh" onClick={sysR}>↻</button></div>
+        {sysL ? <p className="loading">로딩 중...</p> : sys?.ok ? (
           <>
-            <Gauge label="CPU" pct={sys.cpu} val={`${sys.cpu}%`} extra="8코어" />
-            <Gauge label="RAM" pct={sys.mem} val={`${sys.memUsed}/${sys.memTotal}G`} />
-            {sys.disk && <Gauge label="Disk" pct={parseInt(sys.disk.pct)} val={sys.disk.pct} />}
-            <div style={{fontSize:'.73rem',color:'var(--m)',marginTop:6,display:'flex',alignItems:'center',gap:6}}>
+            <Gauge label="CPU" pct={sys.cpu} detail={`${sys.cpu}% · ${sys.cpuCores || 8}코어`} />
+            <Gauge label="RAM" pct={sys.mem} detail={`${sys.memUsed}/${sys.memTotal}GB`} />
+            {sys.disk && <Gauge label="Disk" pct={parseInt(sys.disk.pct)} detail={`${sys.disk.used}/${sys.disk.total}`} />}
+            <div style={{fontSize:'.75rem',color:'var(--m)',marginTop:6,display:'flex',alignItems:'center',gap:6}}>
               <span>업타임:</span>
-              <span className="mono" style={{color:'var(--t)'}}>{sys.uptime}</span>
+              <span className="mono">{formatUptime(sys.uptime)}</span>
             </div>
           </>
-        ) : <div className="err">로딩 실패</div>}
+        ) : <p className="err">로딩 실패</p>}
       </div>
 
-      {/* Section 3: Current Session */}
+      {/* 세션 현황 */}
       <div className="card">
-        <div className="card-title">현재 세션</div>
-        {sst?.text ? (
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            {sess.session && (
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <div className="dot blue" />
-                <span style={{fontSize:'.8rem'}}>{sess.session.split(':').pop()}</span>
-              </div>
-            )}
-            {sess.model && (
-              <div style={{fontSize:'.73rem',color:'var(--m)'}}>모델: <span style={{color:'var(--t)'}}>{sess.model}</span></div>
-            )}
-            {ctxMax > 0 && (
-              <div>
-                <div style={{fontSize:'.73rem',color:'var(--m)',marginBottom:4}}>
-                  컨텍스트: <span className="mono" style={{color:'var(--t)'}}>{formatTokens(ctxUsed)}</span>
-                  <span style={{color:'var(--m2)'}}> / {formatTokens(ctxMax)}</span>
-                  <span style={{color: ctxPct > 80 ? 'var(--r)' : ctxPct > 50 ? 'var(--y)' : 'var(--g)', marginLeft:6}}>{ctxPct}%</span>
-                </div>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{
-                    width: `${ctxPct}%`,
-                    background: ctxPct > 80 ? 'var(--r)' : ctxPct > 50 ? 'var(--y)' : 'linear-gradient(90deg,var(--p),var(--pl))'
-                  }} />
-                </div>
-              </div>
-            )}
-            {sess.cost && (
-              <div style={{fontSize:'.73rem',color:'var(--m)'}}>비용: <span className="mono" style={{color:'var(--y)'}}>{sess.cost}</span></div>
-            )}
-            {sess.time && (
-              <div style={{fontSize:'.73rem',color:'var(--m)'}}>시간: <span style={{color:'var(--t)'}}>{sess.time}</span></div>
-            )}
-            {token?.totalTokens && (
-              <div style={{fontSize:'.73rem',color:'var(--m)'}}>
-                총 토큰: <span className="mono" style={{color:'var(--t)'}}>{formatTokens(token.totalTokens)}</span>
-                <span style={{color:'var(--m2)',marginLeft:6}}>
-                  (in:{formatTokens(token.inputTokens)} out:{formatTokens(token.outputTokens)} cache:{formatTokens(token.cacheRead)})
-                </span>
-              </div>
-            )}
-          </div>
-        ) : <div className="loading">세션 정보 없음</div>}
+        <div className="card-title">세션 현황</div>
+        {sstL ? <p className="loading">확인 중...</p> : sst?.text ? (
+          sessionInfo ? (
+            <div style={{display:'grid',gridTemplateColumns:'auto 1fr',gap:'4px 12px',fontSize:'.78rem'}}>
+              {sessionInfo.session && <><span style={{color:'var(--m)'}}>현재 세션</span><span className="mono" style={{fontSize:'.72rem'}}>{sessionInfo.session}</span></>}
+              {sessionInfo.model && <><span style={{color:'var(--m)'}}>모델</span><span className="mono">{sessionInfo.model}</span></>}
+              {sessionInfo.tokens && <><span style={{color:'var(--m)'}}>컨텍스트</span><span className="mono">{sessionInfo.tokens} 토큰</span></>}
+              {sessionInfo.cost && <><span style={{color:'var(--m)'}}>비용 추정</span><span className="mono">~{sessionInfo.cost}</span></>}
+              {sessionInfo.time && <><span style={{color:'var(--m)'}}>시간</span><span className="mono">{sessionInfo.time}</span></>}
+            </div>
+          ) : (
+            <pre style={{fontSize:'.7rem',color:'var(--m)',whiteSpace:'pre-wrap',margin:0,lineHeight:1.5}}>{sst.text}</pre>
+          )
+        ) : <p style={{fontSize:'.78rem',color:'var(--m)'}}>세션 정보 없음</p>}
       </div>
 
-      {/* Section 4: Today Stats */}
+      {/* 오늘 통계 */}
       <div className="card">
         <div className="card-title">오늘 통계</div>
-        {today?.ok ? (
+        {statsL ? <p className="loading">로딩 중...</p> : stats?.ok ? (
           <div className="stat-grid">
             <div className="stat-item">
-              <div className="stat-value text-purple">{today.sessionCount || 0}</div>
+              <div className="stat-value text-purple">{stats.sessionCount || 0}</div>
               <div className="stat-label">세션</div>
             </div>
             <div className="stat-item">
-              <div className="stat-value text-blue">{formatTokens(today.totalTokens)}</div>
-              <div className="stat-label">토큰</div>
+              <div className="stat-value text-blue">{stats.messageCount || 0}</div>
+              <div className="stat-label">메시지</div>
             </div>
             <div className="stat-item">
-              <div className="stat-value text-yellow">{formatCost(today.estimatedCost)}</div>
-              <div className="stat-label">비용</div>
+              <div className="stat-value text-green">{fmtTokens(stats.totalTokens)}</div>
+              <div className="stat-label">토큰</div>
             </div>
           </div>
-        ) : <div className="loading">통계 로딩 중...</div>}
+        ) : <p style={{fontSize:'.78rem',color:'var(--m)'}}>통계 로딩 실패</p>}
       </div>
     </div>
   );

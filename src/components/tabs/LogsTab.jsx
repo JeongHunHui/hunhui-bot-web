@@ -1,51 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, API } from '../../api.js';
+import { api } from '../../api.js';
 
-const LEVELS = ['ALL', 'INFO', 'WARN', 'ERROR', 'HTTP'];
-
-function getLevel(line) {
-  if (line.includes('[ERROR]')) return 'ERROR';
-  if (line.includes('[WARN')) return 'WARN';
-  if (line.includes('[HTTP')) return 'HTTP';
-  if (line.includes('[INFO')) return 'INFO';
-  return 'DEBUG';
-}
-
-function getLevelClass(level) {
-  switch (level) {
-    case 'ERROR': return 'log-error';
-    case 'WARN': return 'log-warn';
-    case 'HTTP': return 'log-http';
-    case 'INFO': return 'log-info';
-    default: return 'log-debug';
-  }
-}
+const FILTERS = ['ALL', 'INFO', 'WARN', 'ERROR', 'HTTP'];
 
 export default function LogsTab() {
   const [lines, setLines] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
-  const [newCount, setNewCount] = useState(0);
+  const [prevCount, setPrevCount] = useState(0);
   const bottomRef = useRef(null);
-  const prevCountRef = useRef(0);
-  const sseRef = useRef(null);
 
-  // Initial load via polling (SSE as enhancement)
   const fetchLogs = async () => {
+    setLoading(true);
     try {
       const r = await api.logs();
       if (r.ok) {
-        const newLines = r.lines || [];
-        if (newLines.length > prevCountRef.current) {
-          setNewCount(newLines.length - prevCountRef.current);
-          setTimeout(() => setNewCount(0), 3000);
-        }
-        prevCountRef.current = newLines.length;
-        setLines(newLines);
+        setPrevCount(lines.length);
+        setLines(r.lines || []);
       }
-    } catch {} finally {
+    } finally {
       setLoading(false);
     }
   };
@@ -59,12 +34,23 @@ export default function LogsTab() {
   }, [autoRefresh]);
 
   useEffect(() => {
-    if (autoRefresh) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [lines, autoRefresh]);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [lines]);
 
-  // Filter logic
+  const getLevel = (line) => {
+    if (line.includes('[ERROR]')) return 'ERROR';
+    if (line.includes('[WARN ]') || line.includes('[WARN]')) return 'WARN';
+    if (line.includes('[HTTP ]') || line.includes('[HTTP]')) return 'HTTP';
+    return 'INFO';
+  };
+
+  const levelClass = {
+    ERROR: 'log-error',
+    WARN: 'log-warn',
+    HTTP: 'log-http',
+    INFO: 'log-info',
+  };
+
   const filtered = lines.filter(line => {
     if (filter !== 'ALL' && getLevel(line) !== filter) return false;
     if (search && !line.toLowerCase().includes(search.toLowerCase())) return false;
@@ -72,63 +58,59 @@ export default function LogsTab() {
   });
 
   return (
-    <div className="tab-content animate-in">
-      <div className="card">
-        <div className="card-title">
-          <span>서버 로그 {newCount > 0 && <span className="badge badge-green" style={{marginLeft:6}}>+{newCount}</span>}</span>
-          <div style={{display:'flex',gap:6,alignItems:'center'}}>
-            <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:'.7rem',color: autoRefresh ? 'var(--g)' : 'var(--m)'}}>
-              <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)}
-                style={{accentColor:'var(--p)'}} />
-              자동
-            </label>
-            <button className="btn-refresh" onClick={fetchLogs}>↻</button>
-          </div>
-        </div>
-
-        {/* Search */}
-        <input
-          type="text"
-          className="search-input"
-          placeholder="검색..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{marginBottom:8}}
-        />
-
-        {/* Level filter */}
+    <div className="tab-content">
+      <div className="card" style={{padding:12}}>
+        {/* 필터 바 */}
         <div className="filter-bar">
-          {LEVELS.map(l => (
-            <button key={l}
-              className={`filter-btn ${filter === l ? 'active' : ''}`}
-              onClick={() => setFilter(l)}>
-              {l}
-              {l !== 'ALL' && <span style={{marginLeft:3,opacity:.6}}>
-                {lines.filter(line => getLevel(line) === l).length}
-              </span>}
+          {FILTERS.map(f => (
+            <button key={f}
+              className={`filter-btn ${filter === f ? 'active' : ''}`}
+              onClick={() => setFilter(f)}>
+              {f}
             </button>
           ))}
         </div>
 
-        {/* Log lines */}
-        {loading ? <div className="loading">로그 로딩 중...</div> : (
-          <div className="log-viewer">
-            {filtered.length === 0 ? (
-              <div style={{color:'var(--m2)',textAlign:'center',padding:16}}>
-                {search ? '검색 결과 없음' : '로그 없음'}
-              </div>
-            ) : filtered.map((line, i) => (
-              <div key={i} className={`log-line ${getLevelClass(getLevel(line))}`}>
-                {line}
-              </div>
-            ))}
-            <div ref={bottomRef} />
-          </div>
-        )}
+        {/* 검색 + 옵션 */}
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            className="search-input"
+            type="text"
+            placeholder="검색..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{flex:1}}
+          />
+          <label className="flex items-center gap-2 text-xs text-muted shrink-0" style={{cursor:'pointer'}}>
+            <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
+            자동
+          </label>
+          <button className="btn-refresh" onClick={fetchLogs} disabled={loading}>
+            {loading ? '...' : '↻'}
+          </button>
+        </div>
 
-        <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:'.68rem',color:'var(--m2)'}}>
-          <span>{filtered.length} / {lines.length}줄</span>
-          <span>3초 갱신</span>
+        <div className="text-xs text-muted mb-2" style={{textAlign:'right'}}>
+          {filtered.length}/{lines.length}줄
+        </div>
+
+        {/* 로그 영역 */}
+        <div className="log-viewer">
+          {filtered.length === 0
+            ? <p className="text-muted">로그 없음</p>
+            : filtered.map((line, i) => {
+                const level = getLevel(line);
+                const isNew = i >= prevCount && prevCount > 0;
+                return (
+                  <div key={i}
+                    className={`log-line ${levelClass[level] || ''}`}
+                    style={isNew ? {background:'rgba(124,58,237,.1)'} : undefined}>
+                    {line}
+                  </div>
+                );
+              })
+          }
+          <div ref={bottomRef} />
         </div>
       </div>
     </div>
