@@ -6,9 +6,12 @@ import AgentsTab from './components/tabs/AgentsTab.jsx';
 import TodosTab from './components/tabs/TodosTab.jsx';
 import SettingsTab from './components/tabs/SettingsTab.jsx';
 
-// Tailscale 접근 제한
+// 앱 WebView 전용 접근 제한
+const ua = navigator.userAgent || '';
 const host = window.location.hostname;
-const isTailscale = /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host) || host.endsWith('.ts.net') || host === 'localhost' || host === '127.0.0.1';
+const isTailscale = typeof window.HunhuiNative !== 'undefined' || 
+  ua.indexOf('HunhuiBot-Android') !== -1 ||
+  host === 'localhost' || host === '127.0.0.1';
 
 const TAB_COMPONENTS = {
   chat: ChatTab, system: SystemTab, agents: AgentsTab, todos: TodosTab, settings: SettingsTab,
@@ -19,9 +22,9 @@ export default function App() {
 
   if (!isTailscale) return (
     <div className="blocked">
-      <div>🔒</div>
-      <h1>접근 제한됨</h1>
-      <p>Tailscale VPN 연결 후 이용 가능합니다</p>
+      <div style={{fontSize:'56px',marginBottom:'16px'}}>📱</div>
+      <h1>앱에서만 접속 가능해요</h1>
+      <p>훈희봇은 전용 앱을 통해서만 이용할 수 있어요</p>
     </div>
   );
 
