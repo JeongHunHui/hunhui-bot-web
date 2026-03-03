@@ -2,15 +2,12 @@
 <html lang="ko">
 <head>
 <script>
-// 앱 WebView에서만 접근 허용
 (function() {
-  var ua = navigator.userAgent || '';
   var host = window.location.hostname;
-  var isApp = typeof window.HunhuiNative !== 'undefined' || ua.indexOf('HunhuiBot-Android') !== -1;
-  var isDev = host === 'localhost' || host === '127.0.0.1';
-  if (!isApp && !isDev) {
+  var isTailscale = /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host) || host.endsWith('.ts.net') || host === 'localhost' || host === '127.0.0.1';
+  if (!isTailscale) {
     document.addEventListener('DOMContentLoaded', function() {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f0f1a;color:#e0e0ff;font-family:sans-serif;text-align:center;padding:20px"><div><div style="font-size:56px;margin-bottom:16px">📱</div><h1 style="font-size:22px;font-weight:700;color:#a78bfa;margin-bottom:12px">앱에서만 접속 가능해요</h1><p style="color:#555580;font-size:14px;line-height:1.6">훈희봇은 전용 앱을 통해서만<br>이용할 수 있어요</p></div></div>';
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f0f1a;color:#e0e0ff;font-family:sans-serif;text-align:center;padding:20px"><div><div style="font-size:56px;margin-bottom:16px">🔒</div><h1 style="font-size:22px;font-weight:700;color:#a78bfa;margin-bottom:12px">접근 제한됨</h1><p style="color:#555580;font-size:14px;line-height:1.6">Tailscale VPN 연결 후 이용 가능합니다</p></div></div>';
     });
   }
 })();
@@ -19,210 +16,229 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#1a1a2e">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="훈희봇">
 <link rel="manifest" href="/manifest.json">
 <title>훈희봇</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, 'Segoe UI', sans-serif;
-    background: #0f0f1a;
-    color: #e0e0ff;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-  .card {
-    background: #1a1a2e;
-    border: 1px solid #2d2d4e;
-    border-radius: 24px;
-    padding: 32px 24px;
-    width: 100%;
-    max-width: 400px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    box-shadow: 0 8px 32px #0008;
-  }
-  h1 { text-align: center; font-size: 1.4rem; font-weight: 700; color: #a78bfa; letter-spacing: 0.05em; }
-  h1 span { font-size: 1.8rem; display: block; margin-bottom: 4px; }
-  textarea {
-    background: #0f0f1a;
-    border: 1.5px solid #3d3d6e;
-    border-radius: 14px;
-    color: #e0e0ff;
-    font-size: 1rem;
-    padding: 14px 16px;
-    resize: vertical;
-    min-height: 90px;
-    width: 100%;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  textarea:focus { border-color: #7c3aed; }
-  textarea::placeholder { color: #555580; }
-  .btn { border: none; border-radius: 16px; cursor: pointer; font-size: 1rem; font-weight: 600; padding: 14px; transition: all 0.15s; width: 100%; }
-  .btn:active { transform: scale(0.97); }
-  .btn-send { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; }
-  .btn-send:disabled { background: #2d2d4e; color: #555; cursor: not-allowed; }
-  .btn-voice { background: linear-gradient(135deg, #059669, #0d9488); color: #fff; font-size: 1.1rem; }
-  .btn-voice.listening { background: linear-gradient(135deg, #dc2626, #b91c1c); animation: pulse 1.2s ease-in-out infinite; }
-  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 #dc262660; } 50% { box-shadow: 0 0 0 10px #dc262600; } }
-  .status { text-align: center; font-size: 0.85rem; min-height: 20px; color: #7c85a0; }
-  .status.ok { color: #34d399; }
-  .status.err { color: #f87171; }
-  .divider { border: none; border-top: 1px solid #2d2d4e; }
-  .settings-toggle { background: none; border: 1px solid #2d2d4e; border-radius: 10px; color: #7c85a0; cursor: pointer; font-size: 0.8rem; padding: 8px 14px; text-align: center; transition: all 0.2s; }
-  .settings-toggle:hover { border-color: #7c3aed; color: #a78bfa; }
-  .settings { display: none; flex-direction: column; gap: 10px; }
-  .settings.open { display: flex; }
-  .settings label { font-size: 0.78rem; color: #888aaa; margin-bottom: 2px; display: block; }
-  .settings input { background: #0f0f1a; border: 1.5px solid #3d3d6e; border-radius: 10px; color: #e0e0ff; font-size: 0.88rem; padding: 10px 12px; width: 100%; outline: none; }
-  .settings input:focus { border-color: #7c3aed; }
-  .btn-save { background: #1e3a5f; color: #7dd3fc; border: 1px solid #2563eb; border-radius: 10px; cursor: pointer; font-size: 0.85rem; font-weight: 600; padding: 10px; }
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f0f1a;--card:#1a1a2e;--border:#2d2d4e;--purple:#7c3aed;--pl:#a78bfa;--green:#34d399;--red:#f87171;--text:#e0e0ff;--muted:#7c85a0;--muted2:#555580}
+body{font-family:-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;display:flex;flex-direction:column}
+.tabs{display:flex;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+.tab{flex:1;padding:13px 4px;text-align:center;font-size:0.72rem;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:var(--pl);border-bottom-color:var(--purple)}
+.page{display:none;flex:1;padding:14px;flex-direction:column;gap:12px}
+.page.active{display:flex}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
+.card-title{font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.status-row{display:flex;align-items:center;gap:10px}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}
+.dot.grey{background:#555}
+.status-sub{font-size:.75rem;color:var(--muted);margin-left:auto}
+.btn{border:none;border-radius:12px;cursor:pointer;font-size:.9rem;font-weight:600;padding:12px 16px;transition:all .15s;width:100%}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--purple),#4f46e5);color:#fff}
+.btn-danger{background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff}
+.btn-success{background:linear-gradient(135deg,#059669,#0d9488);color:#fff}
+.btn-voice{background:linear-gradient(135deg,#059669,#0d9488);color:#fff;font-size:1rem}
+.btn-voice.listening{background:linear-gradient(135deg,#dc2626,#b91c1c);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 #dc262660}50%{box-shadow:0 0 0 10px #dc262600}}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-sm{padding:6px 12px;font-size:.75rem;border-radius:8px;width:auto}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--muted)}
+textarea{background:var(--bg);border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-size:.95rem;padding:12px 14px;resize:vertical;min-height:80px;width:100%;outline:none}
+textarea:focus{border-color:var(--purple)}
+textarea::placeholder{color:var(--muted2)}
+.msg-status{text-align:center;font-size:.82rem;min-height:18px;color:var(--muted)}
+.msg-status.ok{color:var(--green)}
+.msg-status.err{color:var(--red)}
+.list-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.list-item:last-child{border-bottom:none;padding-bottom:0}
+.li-body{flex:1;min-width:0}
+.li-title{font-size:.86rem;font-weight:600}
+.li-sub{font-size:.73rem;color:var(--muted);margin-top:2px}
+.badge{display:inline-block;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:6px}
+.badge-green{background:#064e3b;color:var(--green)}
+.todo-check{width:18px;height:18px;border-radius:5px;border:2px solid var(--border);flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:.7rem}
+.todo-check.done{background:var(--green);border-color:var(--green);color:#fff}
+.todo-text{font-size:.84rem}
+.todo-text.done{color:var(--muted2);text-decoration:line-through}
+.loading{text-align:center;color:var(--muted);font-size:.83rem;padding:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:.78rem;color:var(--muted)}
+.form-input{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:.88rem;padding:10px 12px;width:100%;outline:none}
+.form-input:focus{border-color:var(--purple)}
 </style>
 </head>
 <body>
-<div class="card">
-  <h1><span>🤖</span>훈희봇</h1>
+<nav class="tabs">
+  <div class="tab active" onclick="switchTab('chat')" id="tab-chat">💬 채팅</div>
+  <div class="tab" onclick="switchTab('dashboard')" id="tab-dashboard">📊 상태</div>
+  <div class="tab" onclick="switchTab('todos')" id="tab-todos">✅ 할 일</div>
+  <div class="tab" onclick="switchTab('settings')" id="tab-settings">⚙️ 설정</div>
+</nav>
+
+<div class="page active" id="page-chat">
   <button class="btn btn-voice" id="voiceBtn" onclick="toggleVoice()">🎤 음성 입력</button>
   <textarea id="msgInput" placeholder="메시지를 입력하거나 음성 버튼을 누르세요..."></textarea>
-  <button class="btn btn-send" id="sendBtn" onclick="sendMsg()">📤 Slack 전송</button>
-  <p class="status" id="status"></p>
-  <hr class="divider">
-  <button class="settings-toggle" onclick="toggleSettings()">⚙️ 설정</button>
-  <div class="settings" id="settings">
-    <div>
-      <label>Slack Bot Token (xoxb-...)</label>
-      <input type="password" id="cfgToken" placeholder="xoxb-...">
+  <button class="btn btn-primary" id="sendBtn" onclick="sendMsg()">📤 전송</button>
+  <p class="msg-status" id="chatStatus"></p>
+</div>
+
+<div class="page" id="page-dashboard">
+  <div class="card">
+    <div class="card-title">OpenClaw 상태 <button class="btn btn-ghost btn-sm" onclick="loadStatus()">↻</button></div>
+    <div id="statusContent" class="loading">로딩 중...</div>
+    <div style="margin-top:10px" id="restartWrap" style="display:none">
+      <button class="btn btn-danger" id="restartBtn" onclick="restartOpenclaw()">🔄 OpenClaw 재시작</button>
     </div>
-    <div>
-      <label>Channel ID (C...)</label>
-      <input type="text" id="cfgChannel" placeholder="C0AJLQUM2KA">
+  </div>
+  <div class="card">
+    <div class="card-title">세션 <button class="btn btn-ghost btn-sm" onclick="loadSessions()">↻</button></div>
+    <div id="sessionsContent" class="loading">로딩 중...</div>
+  </div>
+</div>
+
+<div class="page" id="page-todos">
+  <div class="card">
+    <div class="card-title">진행 중 <button class="btn btn-ghost btn-sm" onclick="loadTodos()">↻</button></div>
+    <div id="todoPending" class="loading">로딩 중...</div>
+  </div>
+  <div class="card">
+    <div class="card-title">완료됨</div>
+    <div id="todoDone" class="loading">로딩 중...</div>
+  </div>
+</div>
+
+<div class="page" id="page-settings">
+  <div class="card">
+    <div class="card-title">Slack 설정</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="form-group"><label class="form-label">Bot Token (xoxb-...)</label><input type="password" class="form-input" id="cfgToken" placeholder="xoxb-..."></div>
+      <div class="form-group"><label class="form-label">Channel ID</label><input type="text" class="form-input" id="cfgChannel" placeholder="C0AJLQUM2KA"></div>
+      <button class="btn btn-primary" onclick="saveSettings()">💾 저장</button>
+      <p class="msg-status" id="settingsStatus"></p>
     </div>
-    <button class="btn-save" onclick="saveSettings()">💾 저장</button>
+  </div>
+  <div class="card">
+    <div class="card-title">서버 정보</div>
+    <div style="font-size:.8rem;color:var(--muted);line-height:2">
+      🌐 <span style="color:var(--text)">jeonghunhuiui-macmini.tail82ec06.ts.net</span><br>
+      🔌 API: <span style="color:var(--text)">:8443</span><br>
+      🔒 Tailscale 전용
+    </div>
   </div>
 </div>
 
 <script>
-var $ = function(id) { return document.getElementById(id); };
-var recognition = null;
-var listening = false;
+var API='https://jeonghunhuiui-macmini.tail82ec06.ts.net:8443';
+var recognition=null,listening=false;
 
-// Native callbacks (called from Android via evaluateJavascript)
-window.HunhuiNativeCallback = {
-  onVoiceResult: function(text) {
-    $('msgInput').value = text;
-    setStatus('인식 완료: ' + text, 'ok');
-    stopVoiceUI();
-  },
-  onVoiceError: function(error) {
-    setStatus('음성 오류: ' + error, 'err');
-    stopVoiceUI();
-  },
-  onVoiceStateChanged: function(state) {
-    if (state === 'listening') {
-      listening = true;
-      $('voiceBtn').textContent = '🔴 듣는 중... (탭하면 중지)';
-      $('voiceBtn').classList.add('listening');
-      setStatus('말씀하세요...');
-    } else {
-      stopVoiceUI();
-    }
+function switchTab(n){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active')});
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
+  document.getElementById('tab-'+n).classList.add('active');
+  document.getElementById('page-'+n).classList.add('active');
+  if(n==='dashboard'){loadStatus();loadSessions();}
+  if(n==='todos'){loadTodos();}
+  if(n==='settings'){loadSettingsUI();}
+}
+
+async function loadStatus(){
+  var el=document.getElementById('statusContent'),wrap=document.getElementById('restartWrap');
+  el.innerHTML='<span class="loading">확인 중...</span>';
+  try{
+    var r=await fetch(API+'/dashboard/status'),d=await r.json();
+    var ok=d.ok&&d.gateway;
+    el.innerHTML='<div class="status-row"><div class="dot '+(ok?'green':'red')+'"></div><span style="font-size:.9rem;font-weight:600">'+(ok?'정상 동작 중':'응답 없음')+'</span>'+(d.pid?'<span class="status-sub">PID '+d.pid+'</span>':'')+' </div>';
+    wrap.style.display=ok?'none':'block';
+  }catch(e){
+    el.innerHTML='<div class="status-row"><div class="dot red"></div><span style="font-size:.9rem;font-weight:600">연결 실패</span></div>';
+    wrap.style.display='block';
   }
+}
+
+async function restartOpenclaw(){
+  var btn=document.getElementById('restartBtn');
+  btn.disabled=true;btn.textContent='⏳ 재시작 중...';
+  try{await fetch(API+'/dashboard/restart',{method:'POST'});}catch(e){}
+  setTimeout(function(){loadStatus();btn.disabled=false;btn.textContent='🔄 OpenClaw 재시작';},4000);
+}
+
+async function loadSessions(){
+  var el=document.getElementById('sessionsContent');
+  el.innerHTML='<span class="loading">로딩 중...</span>';
+  try{
+    var r=await fetch(API+'/dashboard/sessions'),d=await r.json();
+    var ss=d.sessions||[];
+    if(!ss.length){el.innerHTML='<p class="loading">활성 세션 없음</p>';return;}
+    el.innerHTML=ss.map(function(s){
+      return '<div class="list-item"><div style="font-size:1.1rem">🤖</div><div class="li-body"><div class="li-title">'+(s.label||s.key||s.id||'Session')+'</div><div class="li-sub">'+(s.kind||'agent')+(s.model?' · '+s.model:'')+'</div></div><span class="badge badge-green">활성</span></div>';
+    }).join('');
+  }catch(e){el.innerHTML='<p style="color:var(--red);font-size:.82rem;padding:8px">세션 조회 실패</p>';}
+}
+
+async function loadTodos(){
+  var pe=document.getElementById('todoPending'),de=document.getElementById('todoDone');
+  pe.innerHTML=de.innerHTML='<span class="loading">로딩 중...</span>';
+  try{
+    var r=await fetch(API+'/dashboard/todos'),d=await r.json();
+    pe.innerHTML=(d.pending||[]).length?d.pending.map(function(t){return '<div class="list-item"><div class="todo-check"></div><div class="li-body"><div class="todo-text">'+esc(t)+'</div></div></div>';}).join(''):'<p class="loading">모두 완료됐어요! 🎉</p>';
+    de.innerHTML=(d.done||[]).length?d.done.map(function(t){return '<div class="list-item"><div class="todo-check done">✓</div><div class="li-body"><div class="todo-text done">'+esc(t)+'</div></div></div>';}).join(''):'<p class="loading">완료 항목 없음</p>';
+  }catch(e){pe.innerHTML=de.innerHTML='<p style="color:var(--red);font-size:.82rem;padding:8px">로딩 실패</p>';}
+}
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+async function sendMsg(){
+  var token=localStorage.getItem('slack_token'),channel=localStorage.getItem('slack_channel');
+  var text=document.getElementById('msgInput').value.trim();
+  if(!token||!channel){setChatS('설정에서 토큰과 채널을 먼저 입력해주세요','err');switchTab('settings');return;}
+  if(!text){setChatS('메시지를 입력하세요','err');return;}
+  var btn=document.getElementById('sendBtn');btn.disabled=true;setChatS('전송 중...');
+  try{
+    var r=await fetch('https://slack.com/api/chat.postMessage',{method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({channel:channel,text:text,as_user:true})});
+    var d=await r.json();
+    if(d.ok){setChatS('✓ 전송 완료!','ok');document.getElementById('msgInput').value='';}
+    else setChatS('오류: '+d.error,'err');
+  }catch(e){setChatS('네트워크 오류','err');}
+  btn.disabled=false;
+}
+
+function setChatS(m,c){var s=document.getElementById('chatStatus');s.textContent=m;s.className='msg-status '+(c||'');}
+
+window.HunhuiNativeCallback={
+  onVoiceResult:function(t){document.getElementById('msgInput').value=t;setChatS('인식 완료','ok');stopVoiceUI();},
+  onVoiceError:function(e){setChatS('음성 오류: '+e,'err');stopVoiceUI();},
+  onVoiceStateChanged:function(s){if(s==='listening')startVoiceUI();else stopVoiceUI();}
 };
 
-function loadSettings() {
-  $('cfgToken').value = localStorage.getItem('slack_token') || '';
-  $('cfgChannel').value = localStorage.getItem('slack_channel') || '';
-}
-function saveSettings() {
-  localStorage.setItem('slack_token', $('cfgToken').value.trim());
-  localStorage.setItem('slack_channel', $('cfgChannel').value.trim());
-  setStatus('설정 저장됨 ✓', 'ok');
-  setTimeout(function() { setStatus(''); }, 2000);
-}
-function toggleSettings() { $('settings').classList.toggle('open'); }
-function setStatus(msg, cls) {
-  var s = $('status');
-  s.textContent = msg;
-  s.className = 'status ' + (cls || '');
-}
-
-async function sendMsg() {
-  var token = localStorage.getItem('slack_token');
-  var channel = localStorage.getItem('slack_channel');
-  var text = $('msgInput').value.trim();
-  if (!token || !channel) { setStatus('설정에서 토큰과 채널을 먼저 입력해주세요', 'err'); $('settings').classList.add('open'); return; }
-  if (!text) { setStatus('메시지를 입력하세요', 'err'); return; }
-  $('sendBtn').disabled = true;
-  setStatus('전송 중...');
-  try {
-    var res = await fetch('https://slack.com/api/chat.postMessage', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel: channel, text: text, as_user: true })
-    });
-    var data = await res.json();
-    if (data.ok) { setStatus('✓ 전송 완료!', 'ok'); $('msgInput').value = ''; }
-    else { setStatus('오류: ' + data.error, 'err'); }
-  } catch (e) { setStatus('네트워크 오류', 'err'); }
-  $('sendBtn').disabled = false;
-}
-
-function toggleVoice() {
-  if (listening) { stopVoice(); return; }
-  // 네이티브 STT (Android WebView)
-  if (typeof window.HunhuiNative !== 'undefined') {
-    window.HunhuiNative.startVoice();
-    return;
-  }
-  // 웹 SpeechRecognition 폴백
-  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) { setStatus('음성 인식 미지원', 'err'); return; }
-  recognition = new SpeechRecognition();
-  recognition.lang = 'ko-KR';
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-  recognition.onstart = function() {
-    listening = true;
-    $('voiceBtn').textContent = '🔴 듣는 중... (탭하면 중지)';
-    $('voiceBtn').classList.add('listening');
-    setStatus('말씀하세요...');
-  };
-  recognition.onresult = function(e) {
-    var text = e.results[0][0].transcript;
-    $('msgInput').value = text;
-    setStatus('인식 완료: ' + text, 'ok');
-  };
-  recognition.onerror = function(e) { setStatus('음성 오류: ' + e.error, 'err'); };
-  recognition.onend = function() { stopVoiceUI(); };
+function toggleVoice(){
+  if(listening){stopVoice();return;}
+  if(typeof window.HunhuiNative!=='undefined'){window.HunhuiNative.startVoice();return;}
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){setChatS('음성 인식 미지원','err');return;}
+  recognition=new SR();recognition.lang='ko-KR';recognition.interimResults=false;
+  recognition.onstart=function(){startVoiceUI();};
+  recognition.onresult=function(e){document.getElementById('msgInput').value=e.results[0][0].transcript;setChatS('인식 완료','ok');};
+  recognition.onerror=function(e){setChatS('오류: '+e.error,'err');};
+  recognition.onend=function(){stopVoiceUI();};
   recognition.start();
 }
-function stopVoice() {
-  if (typeof window.HunhuiNative !== 'undefined') { window.HunhuiNative.stopVoice(); }
-  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
-  stopVoiceUI();
-}
-function stopVoiceUI() {
-  listening = false;
-  $('voiceBtn').textContent = '🎤 음성 입력';
-  $('voiceBtn').classList.remove('listening');
+function stopVoice(){if(typeof window.HunhuiNative!=='undefined')window.HunhuiNative.stopVoice();if(recognition){try{recognition.stop();}catch(e){}recognition=null;}stopVoiceUI();}
+function startVoiceUI(){listening=true;var b=document.getElementById('voiceBtn');b.textContent='🔴 듣는 중... (탭하면 중지)';b.classList.add('listening');setChatS('말씀하세요...');}
+function stopVoiceUI(){listening=false;var b=document.getElementById('voiceBtn');b.textContent='🎤 음성 입력';b.classList.remove('listening');}
+
+function loadSettingsUI(){document.getElementById('cfgToken').value=localStorage.getItem('slack_token')||'';document.getElementById('cfgChannel').value=localStorage.getItem('slack_channel')||'';}
+function saveSettings(){
+  localStorage.setItem('slack_token',document.getElementById('cfgToken').value.trim());
+  localStorage.setItem('slack_channel',document.getElementById('cfgChannel').value.trim());
+  var s=document.getElementById('settingsStatus');s.textContent='저장됨 ✓';s.className='msg-status ok';
+  setTimeout(function(){s.textContent='';s.className='msg-status';},2000);
 }
 
-$('msgInput').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
-});
-
-loadSettings();
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(function() {});
-}
+document.getElementById('msgInput').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(function(){});
 </script>
 </body>
 </html>
