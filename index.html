@@ -1,6 +1,23 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<script>
+// Tailscale 네트워크에서만 접근 허용
+// 100.64.0.0/10 대역 체크 (클라이언트 IP는 fetch로 확인)
+(function() {
+  // 현재 호스트가 Tailscale MagicDNS 또는 100.x.x.x이면 허용
+  var host = window.location.hostname;
+  var isTailscale = /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host) ||
+                    host.endsWith('.ts.net') ||
+                    host === 'localhost' ||
+                    host === '127.0.0.1';
+  if (!isTailscale) {
+    document.addEventListener('DOMContentLoaded', function() {
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f0f1a;color:#e0e0ff;font-family:sans-serif;text-align:center;padding:20px"><div><div style="font-size:48px;margin-bottom:16px">🔒</div><h1 style="font-size:24px;margin-bottom:12px">접근 제한됨</h1><p style="color:#888;font-size:14px">Tailscale VPN 연결 후 이용 가능합니다</p></div></div>';
+    });
+  }
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#1a1a2e">
