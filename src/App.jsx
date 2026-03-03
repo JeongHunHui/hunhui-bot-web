@@ -32,15 +32,12 @@ export default function App() {
     if (host === 'localhost' || host === '127.0.0.1') {
       setAllowed(true); return;
     }
-    // Tailscale IP로 직접 접속한 경우
+    // Tailscale IP로 직접 접속한 경우 (서버가 이미 IP 체크함)
     if (isTailscaleRange(host)) {
       setAllowed(true); return;
     }
-    // fetch로 실제 클라이언트 IP 확인
-    fetch('https://api64.ipify.org?format=json')
-      .then(r => r.json())
-      .then(d => { setAllowed(isTailscaleRange(d.ip)); })
-      .catch(() => { setAllowed(false); });
+    // 서버가 Tailscale 체크 담당 - 여기까지 왔으면 허용
+    setAllowed(true);
   }, []);
 
   if (allowed === null) return (
@@ -67,3 +64,4 @@ export default function App() {
     </div>
   );
 }
+// build: Wed Mar  4 02:43:12 KST 2026

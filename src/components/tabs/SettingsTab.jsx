@@ -35,8 +35,8 @@ export default function SettingsTab() {
       <div className="card">
         <div className="card-title">서버 정보</div>
         <div className="info-text">
-          🌐 jeonghunhuiui-macmini.tail82ec06.ts.net<br/>
-          🔌 API: :8443<br/>
+          🌐 Mac mini: 100.73.43.27<br/>
+          🔌 서버: http://100.73.43.27:3001<br/>
           🔒 Tailscale 전용
         </div>
       </div>
