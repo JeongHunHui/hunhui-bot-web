@@ -3,6 +3,7 @@ export const TABS = [
   { id: 'system',   label: '🖥 시스템' },
   { id: 'agents',   label: '🤖 에이전트' },
   { id: 'todos',    label: '✅ 할 일' },
+  { id: 'logs',     label: '📋 로그' },
   { id: 'settings', label: '⚙️ 설정' },
 ];
 

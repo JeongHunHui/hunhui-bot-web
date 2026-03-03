@@ -14,6 +14,8 @@ export const api = {
   sessions:() => apiFetch('/dashboard/sessions'),
   todos:   () => apiFetch('/dashboard/todos'),
   restart: () => apiFetch('/dashboard/restart', { method: 'POST' }),
+  claudeStatus: () => apiFetch('/dashboard/claude-status'),
+  sessionStatus: () => apiFetch('/dashboard/session-status'),
   history: (sessionKey, limit) => apiFetch(`/dashboard/history?session=${encodeURIComponent(sessionKey)}&limit=${limit||30}`),
   chat:    (text, sessionKey) => apiFetch('/chat', {
     method: 'POST',

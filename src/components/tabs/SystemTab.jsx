@@ -9,6 +9,26 @@ function Gauge({ label, pct, val }) {
       <span className="gauge-label">{label}</span>
       <div className="gauge-bar"><div className="gauge-fill" style={{ width: `${pct}%`, background: color }} /></div>
       <span className="gauge-val">{val}</span>
+      <div className="card">
+        <div className="card-title">Claude Code <button className="btn-refresh" onClick={claudeR}>↻</button></div>
+        {claudeL ? <p className="loading">확인 중...</p> : claude ? (
+          <>
+            <div className="status-row">
+              <div className={`dot ${claude.apiKeyOk ? 'green' : 'red'}`} />
+              <span className="status-label">{claude.apiKeyOk ? 'API 키 정상' : 'API 키 없음'}</span>
+            </div>
+            {claude.version && <p style={{fontSize:'.75rem',color:'var(--m)',marginTop:6}}>버전: {claude.version}</p>}
+            {claude.model && <p style={{fontSize:'.75rem',color:'var(--m)'}}>모델: {claude.model}</p>}
+            {!claude.apiKeyOk && <p style={{fontSize:'.75rem',color:'#ef4444',marginTop:6}}>⚠️ ANTHROPIC_API_KEY 확인 필요</p>}
+          </>
+        ) : <p className="err">로딩 실패</p>}
+      </div>
+      <div className="card">
+        <div className="card-title">세션 상태 <button className="btn-refresh" onClick={sstR}>↻</button></div>
+        {sstL ? <p className="loading">확인 중...</p> : sst?.text ? (
+          <pre style={{fontSize:'.7rem',color:'var(--m)',whiteSpace:'pre-wrap',margin:0,lineHeight:1.5}}>{sst.text}</pre>
+        ) : <p className="err">로딩 실패</p>}
+      </div>
     </div>
   );
 }
@@ -16,6 +36,8 @@ function Gauge({ label, pct, val }) {
 export default function SystemTab() {
   const { data: st, loading: stL, reload: stR } = useApi(api.status, [], 30000);
   const { data: sys, loading: sysL, reload: sysR } = useApi(api.system, [], 10000);
+  const { data: claude, loading: claudeL, reload: claudeR } = useApi(api.claudeStatus, [], 60000);
+  const { data: sst, loading: sstL, reload: sstR } = useApi(api.sessionStatus, [], 30000);
   const [restarting, setRestarting] = useState(false);
 
   async function restart() {
@@ -52,6 +74,26 @@ export default function SystemTab() {
             {sys.disk && <Gauge label="Disk" pct={parseInt(sys.disk.pct)} val={sys.disk.pct} />}
             <p style={{fontSize:'.75rem',color:'var(--m)',marginTop:8}}>⏱ 업타임: {sys.uptime}</p>
           </>
+        ) : <p className="err">로딩 실패</p>}
+      </div>
+      <div className="card">
+        <div className="card-title">Claude Code <button className="btn-refresh" onClick={claudeR}>↻</button></div>
+        {claudeL ? <p className="loading">확인 중...</p> : claude ? (
+          <>
+            <div className="status-row">
+              <div className={`dot ${claude.apiKeyOk ? 'green' : 'red'}`} />
+              <span className="status-label">{claude.apiKeyOk ? 'API 키 정상' : 'API 키 없음'}</span>
+            </div>
+            {claude.version && <p style={{fontSize:'.75rem',color:'var(--m)',marginTop:6}}>버전: {claude.version}</p>}
+            {claude.model && <p style={{fontSize:'.75rem',color:'var(--m)'}}>모델: {claude.model}</p>}
+            {!claude.apiKeyOk && <p style={{fontSize:'.75rem',color:'#ef4444',marginTop:6}}>⚠️ ANTHROPIC_API_KEY 확인 필요</p>}
+          </>
+        ) : <p className="err">로딩 실패</p>}
+      </div>
+      <div className="card">
+        <div className="card-title">세션 상태 <button className="btn-refresh" onClick={sstR}>↻</button></div>
+        {sstL ? <p className="loading">확인 중...</p> : sst?.text ? (
+          <pre style={{fontSize:'.7rem',color:'var(--m)',whiteSpace:'pre-wrap',margin:0,lineHeight:1.5}}>{sst.text}</pre>
         ) : <p className="err">로딩 실패</p>}
       </div>
     </div>
