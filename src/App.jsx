@@ -6,17 +6,50 @@ import AgentsTab from './components/tabs/AgentsTab.jsx';
 import TodosTab from './components/tabs/TodosTab.jsx';
 import SettingsTab from './components/tabs/SettingsTab.jsx';
 
-// 접근 허용 (Firebase 공개 호스팅 - Tailscale 체크 불필요)
-const isTailscale = true;
-
 const TAB_COMPONENTS = {
   chat: ChatTab, system: SystemTab, agents: AgentsTab, todos: TodosTab, settings: SettingsTab,
 };
 
+function isTailscaleRange(ip) {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4) return false;
+  // 100.64.0.0/10: 100.64 ~ 100.127
+  return parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127;
+}
+
 export default function App() {
   const [tab, setTab] = useState('chat');
+  const [allowed, setAllowed] = useState(null); // null=loading, true=ok, false=blocked
 
-  if (!isTailscale) return (
+  useEffect(() => {
+    const ua = navigator.userAgent || '';
+    const host = window.location.hostname;
+    // 앱 WebView 즉시 허용
+    if (typeof window.HunhuiNative !== 'undefined' || ua.indexOf('HunhuiBot-Android') !== -1) {
+      setAllowed(true); return;
+    }
+    // localhost 허용
+    if (host === 'localhost' || host === '127.0.0.1') {
+      setAllowed(true); return;
+    }
+    // Tailscale IP로 직접 접속한 경우
+    if (isTailscaleRange(host)) {
+      setAllowed(true); return;
+    }
+    // fetch로 실제 클라이언트 IP 확인
+    fetch('https://api64.ipify.org?format=json')
+      .then(r => r.json())
+      .then(d => { setAllowed(isTailscaleRange(d.ip)); })
+      .catch(() => { setAllowed(false); });
+  }, []);
+
+  if (allowed === null) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'#0f0f1a',color:'#a78bfa',fontFamily:'sans-serif',fontSize:'14px'}}>
+      확인 중...
+    </div>
+  );
+
+  if (!allowed) return (
     <div className="blocked">
       <div style={{fontSize:'56px',marginBottom:'16px'}}>📱</div>
       <h1>앱에서만 접속 가능해요</h1>
