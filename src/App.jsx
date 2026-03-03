@@ -19,7 +19,7 @@ function isTailscaleRange(ip) {
 }
 
 export default function App() {
-  const [tab, setTab] = useState('chat');
+  const [tab, setTab] = useState(() => localStorage.getItem('activeTab') || 'chat');
   const [allowed, setAllowed] = useState(null); // null=loading, true=ok, false=blocked
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export default function App() {
   const TabComponent = TAB_COMPONENTS[tab];
   return (
     <div className="app">
-      <TabNav active={tab} onChange={setTab} />
+      <TabNav active={tab} onChange={(t) => { setTab(t); localStorage.setItem('activeTab', t); }} />
       <main className="main">
         <TabComponent />
       </main>
