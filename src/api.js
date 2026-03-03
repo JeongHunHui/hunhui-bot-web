@@ -1,4 +1,6 @@
-export const API = 'https://jeonghunhuiui-macmini.tail82ec06.ts.net:8443';
+// API URL은 환경변수로 주입 (.env 파일 또는 빌드 시 VITE_API_URL)
+// .env 파일을 만들고 VITE_API_URL을 설정하세요 (절대 커밋하지 마세요)
+export const API = import.meta.env.VITE_API_URL || '';
 
 export async function apiFetch(path, options = {}) {
   const res = await fetch(API + path, options);
