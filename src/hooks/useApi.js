@@ -1,30 +1,48 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export function useApi(fetchFn, deps = [], autoRefreshMs = 0) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const mountedRef = useRef(true);
+  const timeoutRef = useRef(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
-      const result = await fetchFn();
-      setData(result);
-      setError(null);
+      setLoading(prev => prev || !data); // only show loading on first fetch
+      const result = await Promise.race([
+        fetchFn(),
+        new Promise((_, reject) => {
+          timeoutRef.current = setTimeout(() => reject(new Error('timeout')), 15000);
+        }),
+      ]);
+      if (mountedRef.current) {
+        setData(result);
+        setError(null);
+      }
     } catch (e) {
-      setError(e.message);
+      if (mountedRef.current) {
+        setError(e.message);
+      }
     } finally {
-      setLoading(false);
+      clearTimeout(timeoutRef.current);
+      if (mountedRef.current) setLoading(false);
     }
   }, deps);
 
   useEffect(() => {
+    mountedRef.current = true;
     load();
+    let id;
     if (autoRefreshMs > 0) {
-      const id = setInterval(load, autoRefreshMs);
-      return () => clearInterval(id);
+      id = setInterval(load, autoRefreshMs);
     }
-  }, [load]);
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(timeoutRef.current);
+      if (id) clearInterval(id);
+    };
+  }, [load, autoRefreshMs]);
 
   return { data, loading, error, reload: load };
 }
