@@ -55,6 +55,7 @@ function fmtTokens(n) {
 
 export default function SystemTab() {
   const { data: st, loading: stL, reload: stR } = useApi(api.status, [], 30000);
+  const { data: oci, loading: ociL, reload: ociR } = useApi(api.openclawInfo, [], 20000);
   const { data: sys, loading: sysL, reload: sysR } = useApi(api.system, [], 10000);
   const { data: claude, loading: claudeL } = useApi(api.claudeStatus, [], 60000);
   const { data: sst, loading: sstL } = useApi(api.sessionStatus, [], 30000);
@@ -71,7 +72,7 @@ export default function SystemTab() {
   const sessionInfo = parseSessionStatus(sst?.text);
 
   return (
-    <div className="tab-content">
+    <div className="tab-content" style={{overflowY:"auto",height:"100%"}}>
       {/* OpenClaw + 서버 상태 */}
       <div className={`card ${isOk ? 'glow-green' : 'glow-red'}`}>
         <div className="card-title">OpenClaw 상태 <button className="btn-refresh" onClick={stR}>↻</button></div>
@@ -128,6 +129,31 @@ export default function SystemTab() {
             <pre style={{fontSize:'.7rem',color:'var(--m)',whiteSpace:'pre-wrap',margin:0,lineHeight:1.5}}>{sst.text}</pre>
           )
         ) : <p style={{fontSize:'.78rem',color:'var(--m)'}}>세션 정보 없음</p>}
+      </div>
+
+      {/* OpenClaw 상세 정보 */}
+      <div className="card">
+        <div className="card-title">OpenClaw 상세 <button className="btn-refresh" onClick={ociR}>↻</button></div>
+        {ociL ? <p className="loading">확인 중...</p> : oci?.ok ? (
+          <div style={{display:'grid',gridTemplateColumns:'auto 1fr',gap:'4px 12px',fontSize:'.78rem'}}>
+            {oci.version && <><span style={{color:'var(--m)'}}>버전</span><span className="mono">{oci.version}</span></>}
+            {oci.contextPct !== undefined && (
+              <>
+                <span style={{color:'var(--m)'}}>컨텍스트</span>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{flex:1,height:6,background:'var(--b)',borderRadius:3}}>
+                    <div style={{height:'100%',borderRadius:3,background:oci.contextPct>80?'var(--r)':oci.contextPct>60?'var(--y)':'var(--pl)',width:oci.contextPct+'%',transition:'width .5s'}} />
+                  </div>
+                  <span className="mono" style={{flexShrink:0}}>{oci.contextUsed}/{oci.contextMax} ({oci.contextPct}%)</span>
+                </div>
+              </>
+            )}
+            {oci.cacheHit !== undefined && <><span style={{color:'var(--m)'}}>캐시 히트</span><span className="mono text-green">{oci.cacheHit}%</span></>}
+            {oci.compactions !== undefined && <><span style={{color:'var(--m)'}}>압축 횟수</span><span className="mono">{oci.compactions}</span></>}
+            {oci.thinking && <><span style={{color:'var(--m)'}}>Thinking</span><span className="mono">{oci.thinking}</span></>}
+            {oci.queue && <><span style={{color:'var(--m)'}}>큐 상태</span><span className="mono" style={{fontSize:'.72rem'}}>{oci.queue}</span></>}
+          </div>
+        ) : <p style={{fontSize:'.78rem',color:'var(--m)'}}>정보 없음</p>}
       </div>
 
       {/* 오늘 통계 */}

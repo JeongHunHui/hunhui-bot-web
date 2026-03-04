@@ -42,7 +42,7 @@ export default function AgentsTab() {
   const recent = sessions.filter(s => !s.active).slice(0, 20);
 
   return (
-    <div className="tab-content">
+    <div className="tab-content" style={{overflowY:"auto",height:"100%"}}>
       {viewLog && <AgentLogModal session={viewLog} onClose={() => setViewLog(null)} />}
 
       {/* 활성 에이전트 */}

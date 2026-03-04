@@ -5,12 +5,13 @@ import SystemTab from './components/tabs/SystemTab.jsx';
 import AgentsTab from './components/tabs/AgentsTab.jsx';
 import TodosTab from './components/tabs/TodosTab.jsx';
 import LogsTab from './components/tabs/LogsTab.jsx';
+import StatsTab from './components/tabs/StatsTab.jsx';
 import SettingsTab from './components/tabs/SettingsTab.jsx';
 import { api } from './api.js';
 
 const TAB_COMPONENTS = {
   chat: ChatTab, system: SystemTab, agents: AgentsTab,
-  todos: TodosTab, logs: LogsTab, settings: SettingsTab,
+  todos: TodosTab, logs: LogsTab, stats: StatsTab, settings: SettingsTab,
 };
 
 // Tailscale IP 허용 범위
@@ -81,7 +82,7 @@ export default function App() {
       </header>
 
       {/* 탭 컨텐츠 */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <TabComp />
       </div>
 

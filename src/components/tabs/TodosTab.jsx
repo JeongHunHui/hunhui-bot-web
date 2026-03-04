@@ -51,7 +51,7 @@ export default function TodosTab() {
   const visibleDone = filter === '진행중' ? [] : done;
 
   return (
-    <div className="tab-content">
+    <div className="tab-content" style={{overflowY:"auto",height:"100%"}}>
       {!loading && total > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-2">

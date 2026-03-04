@@ -63,7 +63,7 @@ export default function LogsTab() {
   });
 
   return (
-    <div className="tab-content">
+    <div className="tab-content" style={{overflowY:"auto",height:"100%"}}>
       <div className="card" style={{ padding: 12 }}>
         <div className="filter-bar">
           {FILTERS.map(f => (

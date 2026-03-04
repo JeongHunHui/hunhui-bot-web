@@ -4,6 +4,7 @@ const TABS = [
   { id: 'agents',  label: '🤖', title: '에이전트' },
   { id: 'todos',   label: '📋', title: '할일' },
   { id: 'logs',    label: '📄', title: '로그' },
+  { id: 'stats',   label: '📊', title: '통계' },
   { id: 'settings',label: '⚙️', title: '설정' },
 ];
 

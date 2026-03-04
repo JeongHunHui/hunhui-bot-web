@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
-import { api } from '../../api.js';
+import { api, API } from '../../api.js';
 
 function timeAgo(ts) {
   if (!ts) return '';
@@ -21,6 +21,7 @@ const CH_COLOR = { slack:'#10b981', telegram:'#3b82f6', discord:'#a78bfa', unkno
 function MessageBubble({ msg }) {
   const [copied, setCopied] = useState(false);
   const isUser = msg.role === 'user';
+  const statusIcon = isUser ? (msg.status === 'sending' ? '🕐' : msg.status === 'seen' ? '👀' : msg.status === 'done' ? '✅' : '') : '';
 
   function copy() {
     navigator.clipboard?.writeText(msg.text);
@@ -55,8 +56,9 @@ function MessageBubble({ msg }) {
               >{msg.text}</Markdown>
             </div>
           )}
-          <div style={{fontSize:'.6rem',color:'rgba(255,255,255,.3)',marginTop:4,textAlign:'right'}}>
-            {timeAgo(msg.ts)}
+          <div style={{fontSize:'.6rem',color:'rgba(255,255,255,.3)',marginTop:4,textAlign:'right',display:'flex',justifyContent:'flex-end',alignItems:'center',gap:4}}>
+            <span>{timeAgo(msg.ts)}</span>
+            {isUser && statusIcon && <span style={{fontSize:'.75rem'}}>{statusIcon}</span>}
           </div>
         </div>
         {!isUser && (
@@ -145,13 +147,53 @@ export default function ChatTab() {
     if (!text || sending) return;
     setSending(true);
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text, ts: Date.now() }]);
+    const msgId = Date.now().toString();
+    setMessages(prev => [...prev, { role: 'user', text, ts: Date.now(), id: msgId, status: 'sending' }]);
+    
     try {
       const sk = selected?.sessionId || selected?.key?.split(':').pop() || 'main';
-      const res = await api.chat(text, sk);
-      if (res.reply) setMessages(prev => [...prev, { role: 'assistant', text: res.reply, ts: Date.now() }]);
+      // Update to 'seen' immediately after sending
+      const es = new EventSource(API + '/chat/stream?' + new URLSearchParams({ text, channel: sk }));
+      
+      // Actually we need POST, use fetch for stream
+      const response = await fetch(API + '/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, channel: sk }),
+      });
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const d = JSON.parse(line.slice(6));
+            if (d.type === 'sent') {
+              setMessages(prev => prev.map(m => m.id === msgId ? { ...m, status: 'seen' } : m));
+            } else if (d.type === 'reply') {
+              setMessages(prev => [
+                ...prev.map(m => m.id === msgId ? { ...m, status: 'done' } : m),
+                { role: 'assistant', text: d.text, ts: Date.now() }
+              ]);
+            } else if (d.type === 'error' || d.type === 'timeout') {
+              setMessages(prev => prev.map(m => m.id === msgId ? { ...m, status: 'done' } : m));
+            }
+          } catch {}
+        }
+      }
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'assistant', text: '오류: ' + e.message, ts: Date.now() }]);
+      setMessages(prev => [
+        ...prev.map(m => m.id === msgId ? { ...m, status: 'done' } : m),
+        { role: 'assistant', text: '오류: ' + e.message, ts: Date.now() }
+      ]);
     }
     setSending(false);
   }
