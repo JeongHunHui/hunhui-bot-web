@@ -25,14 +25,10 @@ export default function StatsTab() {
   return (
     <div className="tab-content" style={{overflowY:"auto",height:"100%"}}>
       {/* 상단 stat 카드 */}
-      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}>
         <div className="stat-item">
           <div className="stat-value text-purple">{fmtTokens(totalTokens)}</div>
-          <div className="stat-label">오늘 토큰</div>
-        </div>
-        <div className="stat-item">
-          <div className="stat-value text-green">${totalCost.toFixed(4)}</div>
-          <div className="stat-label">오늘 비용</div>
+          <div className="stat-label">오늘 총 토큰</div>
         </div>
         <div className="stat-item">
           <div className="stat-value text-blue">{data?.sessionCount || 0}</div>
@@ -42,7 +38,7 @@ export default function StatsTab() {
 
       {/* 시간별 토큰 차트 */}
       <div className="card">
-        <div className="card-title">시간별 토큰 소모량 <button className="btn-refresh" onClick={reload}>↻</button></div>
+        <div className="card-title">시간별 토큰 사용량 (구독 모델) <button className="btn-refresh" onClick={reload}>↻</button></div>
         {loading ? <p className="loading">로딩 중...</p> : !hourly.length ? <p className="text-sm text-muted text-center">데이터 없음</p> : (
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={hourly} margin={{ top:5, right:5, bottom:5, left:0 }}>
@@ -66,24 +62,7 @@ export default function StatsTab() {
         )}
       </div>
 
-      {/* 시간별 비용 차트 */}
-      <div className="card">
-        <div className="card-title">시간별 API 비용 (USD)</div>
-        {loading ? <p className="loading">로딩 중...</p> : !hourly.length ? <p className="text-sm text-muted text-center">데이터 없음</p> : (
-          <ResponsiveContainer width="100%" height={140}>
-            <BarChart data={hourly} margin={{ top:5, right:5, bottom:5, left:0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.05)" />
-              <XAxis dataKey="hour" tick={{ fill:'#8888aa', fontSize:10 }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fill:'#8888aa', fontSize:10 }} tickLine={false} axisLine={false} width={50} tickFormatter={v => '$'+v.toFixed(3)} />
-              <Tooltip
-                contentStyle={{ background:'#1a1a24', border:'1px solid #252535', borderRadius:8, fontSize:12 }}
-                formatter={(v) => ['$'+v.toFixed(4), '비용']}
-              />
-              <Bar dataKey="cost" fill="#10b981" radius={[4,4,0,0]} opacity={0.8} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+
 
       {/* 채널별 분포 */}
       {channels.length > 0 && (

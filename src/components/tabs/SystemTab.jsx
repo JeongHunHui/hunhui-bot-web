@@ -171,7 +171,7 @@ export default function SystemTab() {
             </div>
             <div className="stat-item">
               <div className="stat-value text-green">{fmtTokens(stats.totalTokens)}</div>
-              <div className="stat-label">토큰</div>
+              <div className="stat-label">토큰 (오늘)</div>
             </div>
           </div>
         ) : <p style={{fontSize:'.78rem',color:'var(--m)'}}>통계 로딩 실패</p>}
