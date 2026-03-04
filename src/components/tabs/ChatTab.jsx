@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
 import { api, API } from '../../api.js';
+import { useApi } from '../../hooks/useApi.js';
 
 function timeAgo(ts) {
   if (!ts) return '';
@@ -18,10 +19,11 @@ function formatDate(ts) {
 
 const CH_COLOR = { slack:'#10b981', telegram:'#3b82f6', discord:'#a78bfa', unknown:'#6b7280' };
 
+const STATUS_ICON = { sending: '🕐', seen: '👀', done: '✅' };
+
 function MessageBubble({ msg }) {
   const [copied, setCopied] = useState(false);
   const isUser = msg.role === 'user';
-  const statusIcon = isUser ? (msg.status === 'sending' ? '🕐' : msg.status === 'seen' ? '👀' : msg.status === 'done' ? '✅' : '') : '';
 
   function copy() {
     navigator.clipboard?.writeText(msg.text);
@@ -58,7 +60,9 @@ function MessageBubble({ msg }) {
           )}
           <div style={{fontSize:'.6rem',color:'rgba(255,255,255,.3)',marginTop:4,textAlign:'right',display:'flex',justifyContent:'flex-end',alignItems:'center',gap:4}}>
             <span>{timeAgo(msg.ts)}</span>
-            {isUser && statusIcon && <span style={{fontSize:'.75rem'}}>{statusIcon}</span>}
+            {isUser && msg.status && STATUS_ICON[msg.status] && (
+              <span style={{fontSize:'.75rem'}}>{STATUS_ICON[msg.status]}</span>
+            )}
           </div>
         </div>
         {!isUser && (
@@ -69,30 +73,6 @@ function MessageBubble({ msg }) {
         )}
       </div>
     </div>
-  );
-}
-
-
-function TokenBadge({ sessionId }) {
-  const { data } = useApi(api.tokenUsage, [], 30000);
-  if (!data?.ok) return null;
-  const pct = data.totalTokens ? Math.round(data.totalTokens / 2000000 * 100) : 0;
-  return (
-    <>
-      <span className="badge badge-purple">
-        {data.totalTokens >= 1000 ? (data.totalTokens/1000).toFixed(1)+'K' : data.totalTokens} 토큰
-      </span>
-      {data.costUSD > 0 && (
-        <span className="badge" style={{background:'rgba(16,185,129,.15)',color:'var(--g)'}}>
-          ~${data.costUSD.toFixed(4)}
-        </span>
-      )}
-      {data.cacheRead > 0 && (
-        <span className="badge" style={{background:'rgba(59,130,246,.15)',color:'var(--pl)'}}>
-          캐시 {data.cacheRead >= 1000 ? (data.cacheRead/1000).toFixed(1)+'K' : data.cacheRead}
-        </span>
-      )}
-    </>
   );
 }
 
@@ -138,8 +118,6 @@ export default function ChatTab() {
   useEffect(() => {
     window.HunhuiNativeCallback = window.HunhuiNativeCallback || {};
     window.HunhuiNativeCallback.onVoiceResult = (text) => setInput(text);
-    window.HunhuiNativeCallback.onVoiceStateChanged = () => {};
-    window.HunhuiNativeCallback.onVoiceError = () => {};
   }, []);
 
   async function send() {
@@ -149,27 +127,32 @@ export default function ChatTab() {
     setInput('');
     const msgId = Date.now().toString();
     setMessages(prev => [...prev, { role: 'user', text, ts: Date.now(), id: msgId, status: 'sending' }]);
-    
+
     try {
       const sk = selected?.sessionId || selected?.key?.split(':').pop() || 'main';
+
       // SSE 스트리밍으로 응답 받기
       const response = await fetch(API + '/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, channel: sk }),
       });
-      
+
+      if (!response.ok || !response.body) {
+        throw new Error('stream error: ' + response.status);
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-        for (const line of lines) {
+        const parts = buffer.split('\n');
+        buffer = parts.pop() || '';
+        for (const line of parts) {
           if (!line.startsWith('data: ')) continue;
           try {
             const d = JSON.parse(line.slice(6));
@@ -178,7 +161,7 @@ export default function ChatTab() {
             } else if (d.type === 'reply') {
               setMessages(prev => [
                 ...prev.map(m => m.id === msgId ? { ...m, status: 'done' } : m),
-                { role: 'assistant', text: d.text, ts: Date.now() }
+                { role: 'assistant', text: d.text, ts: Date.now() },
               ]);
             } else if (d.type === 'error' || d.type === 'timeout') {
               setMessages(prev => prev.map(m => m.id === msgId ? { ...m, status: 'done' } : m));
@@ -189,7 +172,7 @@ export default function ChatTab() {
     } catch (e) {
       setMessages(prev => [
         ...prev.map(m => m.id === msgId ? { ...m, status: 'done' } : m),
-        { role: 'assistant', text: '오류: ' + e.message, ts: Date.now() }
+        { role: 'assistant', text: '오류: ' + e.message, ts: Date.now() },
       ]);
     }
     setSending(false);
@@ -208,13 +191,13 @@ export default function ChatTab() {
   return (
     <div style={{display:'flex',flexDirection:'column',flex:1,minHeight:0,overflow:'hidden'}}>
       {/* 세션 패널 */}
-      <div style={{background:'var(--s)',borderBottom:'1px solid var(--b)'}}>
-        <div className="flex items-center" style={{padding:'6px 12px',gap:8}}>
-          <span className="text-xs text-muted flex-1">
-            세션 {loadingSess ? '...' : `${sessions.length}개`}
+      <div style={{background:'var(--s)',borderBottom:'1px solid var(--b)',flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',padding:'6px 12px',gap:8}}>
+          <span style={{fontSize:'.75rem',color:'var(--m)',flex:1}}>
+            세션 {loadingSess ? '...' : sessions.length + '개'}
           </span>
-          <button onClick={loadSessions} className="btn-refresh" style={{padding:'2px 6px'}}>↻</button>
-          <button onClick={() => setShowSessions(v=>!v)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--m)',fontSize:12}}>
+          <button onClick={loadSessions} style={{background:'none',border:'1px solid var(--b)',color:'var(--m)',borderRadius:6,padding:'2px 6px',fontSize:'.72rem',cursor:'pointer'}}>↻</button>
+          <button onClick={() => setShowSessions(v => !v)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--m)',fontSize:12}}>
             {showSessions ? '▲' : '▼'}
           </button>
         </div>
@@ -225,24 +208,21 @@ export default function ChatTab() {
               <div key={s.sessionId || s.key}
                 onClick={() => setSelected(s)}
                 style={{
-                  padding:'7px 10px', borderRadius:8, marginBottom:4, cursor:'pointer',
-                  background: selected?.sessionId === s.sessionId ? 'rgba(124,58,237,.3)' : 'var(--bg)',
-                  border: s.active ? '1px solid var(--pl)' : '1px solid var(--b)',
-                  display:'flex', gap:8, alignItems:'flex-start',
-                  transition:'all .2s',
+                  padding:'7px 10px',borderRadius:8,marginBottom:4,cursor:'pointer',
+                  background:selected?.sessionId === s.sessionId ? 'rgba(124,58,237,.3)' : 'var(--bg)',
+                  border:s.active ? '1px solid var(--pl)' : '1px solid var(--b)',
+                  display:'flex',gap:8,alignItems:'flex-start',transition:'all .2s',
                 }}>
                 <div style={{width:8,height:8,borderRadius:'50%',background:CH_COLOR[s.channel]||'#6b7280',marginTop:4,flexShrink:0}} />
                 <div style={{flex:1,minWidth:0}}>
-                  <div className="flex items-center gap-2">
-                    <span className="truncate" style={{fontSize:'.8rem',fontWeight:500}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{fontSize:'.8rem',fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                       {s.displayName || s.sessionId?.slice(0,8)}
                     </span>
-                    {s.active && <span className="badge badge-purple">활성</span>}
+                    {s.active && <span style={{fontSize:'.6rem',background:'rgba(124,58,237,.2)',color:'var(--pl)',borderRadius:4,padding:'1px 5px',flexShrink:0}}>활성</span>}
                   </div>
-                  <div className="text-xs text-muted flex gap-2" style={{marginTop:2,flexWrap:'wrap'}}>
-                    <span>#{s.channel}</span>
-                    <span>{formatDate(s.updatedAt)}</span>
-                    <span>{s.lineCount}줄</span>
+                  <div style={{fontSize:'.7rem',color:'var(--m)',marginTop:2}}>
+                    #{s.channel} · {formatDate(s.updatedAt)} · {s.lineCount}줄
                   </div>
                 </div>
               </div>
@@ -252,40 +232,35 @@ export default function ChatTab() {
       </div>
 
       {/* 메시지 영역 */}
-      <div style={{flex:1,overflowY:'auto',padding:'8px 12px'}}>
+      <div style={{flex:1,overflowY:'auto',padding:'8px 12px',minHeight:0}}>
         {selected && (
           <div style={{textAlign:'center',marginBottom:8}}>
-            <span className="text-xs text-muted" style={{background:'var(--s)',borderRadius:8,padding:'3px 10px'}}>
+            <span style={{fontSize:'.72rem',color:'var(--m)',background:'var(--s)',borderRadius:8,padding:'3px 10px'}}>
               {selected.displayName} · {formatDate(selected.updatedAt)} · {selected.lineCount}줄
             </span>
-            {selected.active && (
-              <div style={{marginTop:4,display:'flex',justifyContent:'center',gap:8,flexWrap:'wrap'}}>
-                <TokenBadge sessionId={selected.sessionId} />
-              </div>
-            )}
           </div>
         )}
         {loadingHist
-          ? <p className="loading">히스토리 로딩 중...</p>
+          ? <p style={{textAlign:'center',color:'var(--m)',fontSize:'.85rem',marginTop:16}}>히스토리 로딩 중...</p>
           : !messages.length
-            ? <p className="text-muted text-center mt-3">대화 내역 없음</p>
+            ? <p style={{textAlign:'center',color:'var(--m)',fontSize:'.85rem',marginTop:16}}>대화 내역 없음</p>
             : messages.map((m, i) => <MessageBubble key={i} msg={m} />)
         }
         <div ref={bottomRef} />
       </div>
 
       {/* 입력창 */}
-      <div style={{padding:'8px 12px',background:'var(--s)',borderTop:'1px solid var(--b)',display:'flex',gap:8,alignItems:'flex-end'}}>
+      <div style={{padding:'8px 12px',background:'var(--s)',borderTop:'1px solid var(--b)',display:'flex',gap:8,alignItems:'flex-end',flexShrink:0}}>
         <textarea
-          value={input} onChange={e=>setInput(e.target.value)}
-          onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} }}
+          value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }}}
           placeholder="메시지 입력..."
           rows={1}
-          style={{flex:1,resize:'none',background:'var(--bg)',border:'1px solid var(--b)',color:'var(--t)',borderRadius:8,padding:'8px 10px',fontSize:'.85rem',outline:'none',lineHeight:1.5,minHeight:'auto'}}
+          style={{flex:1,resize:'none',background:'var(--bg)',border:'1px solid var(--b)',color:'var(--t)',borderRadius:8,padding:'8px 10px',fontSize:'.85rem',outline:'none',lineHeight:1.5}}
         />
         <button onClick={startVoice} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,padding:'4px 6px',color:'var(--m)'}}>🎤</button>
-        <button onClick={send} disabled={sending||!input.trim()}
-          style={{background:'var(--p)',border:'none',borderRadius:8,color:'#fff',padding:'8px 14px',cursor:'pointer',fontSize:'.85rem',fontWeight:600,opacity:(sending||!input.trim())?0.5:1,transition:'opacity .2s'}}>
+        <button onClick={send} disabled={sending || !input.trim()}
+          style={{background:'var(--p)',border:'none',borderRadius:8,color:'#fff',padding:'8px 14px',cursor:'pointer',fontSize:'.85rem',fontWeight:600,opacity:(sending||!input.trim())?0.5:1,transition:'opacity .2s',flexShrink:0}}>
           {sending ? '...' : '전송'}
         </button>
       </div>
