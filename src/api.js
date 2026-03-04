@@ -1,5 +1,12 @@
 // API URL은 환경변수로 주입 (.env 파일 또는 빌드 시 VITE_API_URL)
-export const API = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+export const API = (() => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window === 'undefined') return '';
+  const { protocol, hostname, port } = window.location;
+  // 3001 웹서버 → 3000 API로 직접 (스트리밍 프록시 문제 우회)
+  const apiPort = port === '3001' ? '3000' : port;
+  return `${protocol}//${hostname}:${apiPort}`;
+})();
 
 export async function apiFetch(path, options = {}) {
   const res = await fetch(API + path, options);
