@@ -87,18 +87,20 @@ export default function ChatTab() {
   const [showSessions, setShowSessions] = useState(true);
   const bottomRef = useRef(null);
 
-  async function loadSessions() {
-    setLoadingSess(true);
+  async function loadSessions(isAuto = false) {
+    if (!isAuto) setLoadingSess(true);
     try {
       const d = await api.sessions();
       const list = d.sessions || [];
       setSessions(list);
-      if (!selected && list.length) {
-        const main = list.find(s => s.active) || list[0];
-        setSelected(main);
-      }
+      setSelected(prev => {
+        if (!prev) return list.find(s => s.active) || list[0] || null;
+        // 선택된 세션 유지 (최신 정보로 업데이트만)
+        const updated = list.find(s => s.sessionId === prev.sessionId);
+        return updated || prev;
+      });
     } catch {}
-    setLoadingSess(false);
+    if (!isAuto) setLoadingSess(false);
   }
 
   async function loadHistory(session) {
@@ -111,8 +113,20 @@ export default function ChatTab() {
     setLoadingHist(false);
   }
 
-  useEffect(() => { loadSessions(); }, []);
-  useEffect(() => { if (selected) loadHistory(selected); }, [selected]);
+  useEffect(() => {
+    loadSessions();
+    const t = setInterval(() => loadSessions(true), 30000);
+    return () => clearInterval(t);
+  }, []);
+  const selectedIdRef = useRef(null);
+  useEffect(() => {
+    if (!selected) return;
+    // 선택된 세션이 바뀔 때만 히스토리 로드 (자동 새로고침 시엔 스킵)
+    if (selected.sessionId !== selectedIdRef.current) {
+      selectedIdRef.current = selected.sessionId;
+      loadHistory(selected);
+    }
+  }, [selected?.sessionId]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   useEffect(() => {
