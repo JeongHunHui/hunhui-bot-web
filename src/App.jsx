@@ -83,7 +83,7 @@ export default function App() {
 
       {/* 탭 컨텐츠 */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <TabComp />
+        <TabComp style={{ flex: 1, minHeight: 0 }} />
       </div>
 
       {/* 탭 네비 */}

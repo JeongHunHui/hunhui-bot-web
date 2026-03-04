@@ -152,10 +152,7 @@ export default function ChatTab() {
     
     try {
       const sk = selected?.sessionId || selected?.key?.split(':').pop() || 'main';
-      // Update to 'seen' immediately after sending
-      const es = new EventSource(API + '/chat/stream?' + new URLSearchParams({ text, channel: sk }));
-      
-      // Actually we need POST, use fetch for stream
+      // SSE 스트리밍으로 응답 받기
       const response = await fetch(API + '/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -209,7 +206,7 @@ export default function ChatTab() {
   }
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'100%',padding:0}}>
+    <div style={{display:'flex',flexDirection:'column',flex:1,minHeight:0,overflow:'hidden'}}>
       {/* 세션 패널 */}
       <div style={{background:'var(--s)',borderBottom:'1px solid var(--b)'}}>
         <div className="flex items-center" style={{padding:'6px 12px',gap:8}}>
