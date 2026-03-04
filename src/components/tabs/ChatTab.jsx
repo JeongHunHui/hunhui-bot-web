@@ -70,6 +70,30 @@ function MessageBubble({ msg }) {
   );
 }
 
+
+function TokenBadge({ sessionId }) {
+  const { data } = useApi(api.tokenUsage, [], 30000);
+  if (!data?.ok) return null;
+  const pct = data.totalTokens ? Math.round(data.totalTokens / 2000000 * 100) : 0;
+  return (
+    <>
+      <span className="badge badge-purple">
+        {data.totalTokens >= 1000 ? (data.totalTokens/1000).toFixed(1)+'K' : data.totalTokens} 토큰
+      </span>
+      {data.costUSD > 0 && (
+        <span className="badge" style={{background:'rgba(16,185,129,.15)',color:'var(--g)'}}>
+          ~${data.costUSD.toFixed(4)}
+        </span>
+      )}
+      {data.cacheRead > 0 && (
+        <span className="badge" style={{background:'rgba(59,130,246,.15)',color:'var(--pl)'}}>
+          캐시 {data.cacheRead >= 1000 ? (data.cacheRead/1000).toFixed(1)+'K' : data.cacheRead}
+        </span>
+      )}
+    </>
+  );
+}
+
 export default function ChatTab() {
   const [sessions, setSessions] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -191,10 +215,15 @@ export default function ChatTab() {
       {/* 메시지 영역 */}
       <div style={{flex:1,overflowY:'auto',padding:'8px 12px'}}>
         {selected && (
-          <div className="text-center mb-2">
+          <div style={{textAlign:'center',marginBottom:8}}>
             <span className="text-xs text-muted" style={{background:'var(--s)',borderRadius:8,padding:'3px 10px'}}>
               {selected.displayName} · {formatDate(selected.updatedAt)} · {selected.lineCount}줄
             </span>
+            {selected.active && (
+              <div style={{marginTop:4,display:'flex',justifyContent:'center',gap:8,flexWrap:'wrap'}}>
+                <TokenBadge sessionId={selected.sessionId} />
+              </div>
+            )}
           </div>
         )}
         {loadingHist

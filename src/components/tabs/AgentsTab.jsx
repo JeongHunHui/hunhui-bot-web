@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApi } from '../../hooks/useApi.js';
 import { api } from '../../api.js';
 
@@ -10,7 +11,7 @@ function timeAgo(ts) {
   return `${Math.floor(diff/86400)}일 전`;
 }
 
-function AgentRow({ s, isActive }) {
+function AgentRow({ s, isActive, onViewLog }) {
   return (
     <div className={`list-item`} style={{padding:'8px 0'}}>
       <div style={{
@@ -34,6 +35,7 @@ function AgentRow({ s, isActive }) {
 
 export default function AgentsTab() {
   const { data, loading, reload } = useApi(api.sessions, [], 15000);
+  const [viewLog, setViewLog] = useState(null);
   const sessions = data?.sessions || [];
 
   const active = sessions.filter(s => s.active);
@@ -41,15 +43,17 @@ export default function AgentsTab() {
 
   return (
     <div className="tab-content">
+      {viewLog && <AgentLogModal session={viewLog} onClose={() => setViewLog(null)} />}
+
       {/* 활성 에이전트 */}
-      <div className={`card ${active.length ? 'glow-green' : ''}`}>
+      <div className={'card ' + (active.length ? 'glow-green' : '')}>
         <div className="card-title">
           활성 에이전트 ({active.length})
           <button className="btn-refresh" onClick={reload}>↻</button>
         </div>
         {loading ? <p className="loading">로딩 중...</p> :
          !active.length ? <p className="text-sm text-muted text-center" style={{padding:8}}>활성 에이전트 없음</p> :
-         active.map(s => <AgentRow key={s.key || s.sessionId} s={s} isActive />)
+         active.map(s => <AgentRow key={s.key || s.sessionId} s={s} isActive onViewLog={setViewLog} />)
         }
       </div>
 
@@ -58,7 +62,7 @@ export default function AgentsTab() {
         <div className="card-title">최근 세션 이력 ({recent.length})</div>
         {loading ? <p className="loading">로딩 중...</p> :
          !recent.length ? <p className="text-sm text-muted text-center" style={{padding:8}}>최근 세션 없음</p> :
-         recent.map(s => <AgentRow key={s.key || s.sessionId} s={s} isActive={false} />)
+         recent.map(s => <AgentRow key={s.key || s.sessionId} s={s} isActive={false} onViewLog={setViewLog} />)
         }
       </div>
     </div>

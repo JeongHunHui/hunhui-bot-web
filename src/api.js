@@ -18,6 +18,9 @@ export const api = {
   logs:          () => apiFetch('/dashboard/logs'),
   todayStats:    () => apiFetch('/dashboard/today-stats'),
   tokenUsage:    () => apiFetch('/dashboard/token-usage'),
+  todoAdd:       (text) => apiFetch('/dashboard/todos/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) }),
+  todoToggle:    (text, done) => apiFetch('/dashboard/todos/toggle', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, done }) }),
+  todoDelete:    (text) => apiFetch('/dashboard/todos/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) }),
   history:       (sessionKey, limit) => apiFetch(`/dashboard/history?session=${encodeURIComponent(sessionKey)}&limit=${limit||30}`),
   chat:          (text, sessionKey) => apiFetch('/chat', {
     method: 'POST',
@@ -25,3 +28,5 @@ export const api = {
     body: JSON.stringify({ text, channel: sessionKey || 'default' }),
   }),
 };
+
+// (appended)

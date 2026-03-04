@@ -1,55 +1,60 @@
 import { useState, useEffect, useRef } from 'react';
-import { api } from '../../api.js';
+import { API } from '../../api.js';
 
 const FILTERS = ['ALL', 'INFO', 'WARN', 'ERROR', 'HTTP'];
 
+function getLevel(line) {
+  if (line.includes('[ERROR]')) return 'ERROR';
+  if (line.includes('[WARN ]') || line.includes('[WARN]')) return 'WARN';
+  if (line.includes('[HTTP ]') || line.includes('[HTTP]')) return 'HTTP';
+  return 'INFO';
+}
+
+const levelClass = { ERROR: 'log-error', WARN: 'log-warn', HTTP: 'log-http', INFO: 'log-info' };
+
 export default function LogsTab() {
   const [lines, setLines] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [connected, setConnected] = useState(false);
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
-  const [prevCount, setPrevCount] = useState(0);
+  const [newCount, setNewCount] = useState(0);
   const bottomRef = useRef(null);
+  const esRef = useRef(null);
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    try {
-      const r = await api.logs();
-      if (r.ok) {
-        setPrevCount(lines.length);
-        setLines(r.lines || []);
-      }
-    } finally {
-      setLoading(false);
+  function connect() {
+    if (esRef.current) { esRef.current.close(); }
+    const es = new EventSource(API + '/dashboard/logs/stream');
+    esRef.current = es;
+    es.onopen = () => setConnected(true);
+    es.onerror = () => setConnected(false);
+    es.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.type === 'init') {
+          setLines(d.lines || []);
+          setNewCount(0);
+        } else if (d.type === 'update') {
+          setLines(prev => {
+            const next = [...prev, ...(d.lines || [])].slice(-500);
+            setNewCount(c => c + (d.lines?.length || 0));
+            return next;
+          });
+        }
+      } catch {}
+    };
+  }
+
+  useEffect(() => {
+    connect();
+    return () => { if (esRef.current) esRef.current.close(); };
+  }, []);
+
+  useEffect(() => {
+    if (newCount > 0) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setNewCount(0);
     }
-  };
-
-  useEffect(() => { fetchLogs(); }, []);
-
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const t = setInterval(fetchLogs, 3000);
-    return () => clearInterval(t);
-  }, [autoRefresh]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [lines]);
-
-  const getLevel = (line) => {
-    if (line.includes('[ERROR]')) return 'ERROR';
-    if (line.includes('[WARN ]') || line.includes('[WARN]')) return 'WARN';
-    if (line.includes('[HTTP ]') || line.includes('[HTTP]')) return 'HTTP';
-    return 'INFO';
-  };
-
-  const levelClass = {
-    ERROR: 'log-error',
-    WARN: 'log-warn',
-    HTTP: 'log-http',
-    INFO: 'log-info',
-  };
 
   const filtered = lines.filter(line => {
     if (filter !== 'ALL' && getLevel(line) !== filter) return false;
@@ -59,19 +64,13 @@ export default function LogsTab() {
 
   return (
     <div className="tab-content">
-      <div className="card" style={{padding:12}}>
-        {/* 필터 바 */}
+      <div className="card" style={{ padding: 12 }}>
         <div className="filter-bar">
           {FILTERS.map(f => (
-            <button key={f}
-              className={`filter-btn ${filter === f ? 'active' : ''}`}
-              onClick={() => setFilter(f)}>
-              {f}
-            </button>
+            <button key={f} className={'filter-btn ' + (filter === f ? 'active' : '')} onClick={() => setFilter(f)}>{f}</button>
           ))}
         </div>
 
-        {/* 검색 + 옵션 */}
         <div className="flex items-center gap-2 mb-2">
           <input
             className="search-input"
@@ -79,32 +78,30 @@ export default function LogsTab() {
             placeholder="검색..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{flex:1}}
+            style={{ flex: 1 }}
           />
-          <label className="flex items-center gap-2 text-xs text-muted shrink-0" style={{cursor:'pointer'}}>
-            <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
-            자동
-          </label>
-          <button className="btn-refresh" onClick={fetchLogs} disabled={loading}>
-            {loading ? '...' : '↻'}
-          </button>
+          <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+            <div style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: connected ? 'var(--g)' : 'var(--r)',
+              boxShadow: connected ? '0 0 6px var(--g)' : 'none',
+            }} />
+            <span className="text-xs text-muted">{connected ? 'LIVE' : '연결 끊김'}</span>
+          </div>
+          <button className="btn-refresh" onClick={connect} title="재연결">↻</button>
         </div>
 
-        <div className="text-xs text-muted mb-2" style={{textAlign:'right'}}>
+        <div className="text-xs text-muted mb-2" style={{ textAlign: 'right' }}>
           {filtered.length}/{lines.length}줄
         </div>
 
-        {/* 로그 영역 */}
         <div className="log-viewer">
           {filtered.length === 0
             ? <p className="text-muted">로그 없음</p>
             : filtered.map((line, i) => {
                 const level = getLevel(line);
-                const isNew = i >= prevCount && prevCount > 0;
                 return (
-                  <div key={i}
-                    className={`log-line ${levelClass[level] || ''}`}
-                    style={isNew ? {background:'rgba(124,58,237,.1)'} : undefined}>
+                  <div key={i} className={'log-line ' + (levelClass[level] || '')}>
                     {line}
                   </div>
                 );
