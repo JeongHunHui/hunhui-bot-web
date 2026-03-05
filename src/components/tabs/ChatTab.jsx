@@ -193,13 +193,17 @@ export default function ChatTab() {
   }
 
   function startVoice() {
-    if (!window.isSecureContext) { alert("마이크는 HTTPS에서만 사용 가능해요.\nhttps://jeonghunhuiui-macmini.tail82ec06.ts.net 으로 접속해주세요."); return; }
+
     if (window.HunhuiNative?.startVoice) { window.HunhuiNative.startVoice(); return; }
     if ('webkitSpeechRecognition' in window) {
       const rec = new window.webkitSpeechRecognition();
       rec.lang = 'ko-KR'; rec.interimResults = false;
       rec.onresult = e => setInput(e.results[0][0].transcript);
-      rec.onerror = e => alert('마이크 오류: ' + e.error + '. 브라우저에서 마이크 권한을 허용해주세요.');
+      rec.onerror = e => {
+        if (e.error === 'not-allowed') alert('마이크 권한을 허용해주세요. (HTTPS 접속 필요)');
+        else if (e.error === 'not-supported') alert('이 브라우저는 음성 인식 미지원');
+        else console.warn('음성 오류:', e.error);
+      };
       rec.onstart = () => console.log('음성 인식 시작');
       rec.start();
     }
