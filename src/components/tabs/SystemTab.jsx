@@ -59,6 +59,8 @@ export default function SystemTab() {
   const { data: ocs, loading: ocsL, reload: ocsR } = useApi(api.openclawStatus, [], 30000);
   const { data: och, loading: ochL, reload: ochR } = useApi(api.openclawHealth, [], 60000);
   const { data: stats } = useApi(api.todayStats, [], 60000);
+  const [restartState, setRestartState] = useState(null);
+  const [restartMsg, setRestartMsg] = useState('');
 
   const sessions = ocs?.sessions?.recent || [];
   const activeSessions = sessions.filter(s => s.percentUsed > 0);
@@ -67,6 +69,23 @@ export default function SystemTab() {
   const osInfo = ocs?.os;
 
   function reloadAll() { sysR(); ociR(); ocsR(); ochR(); }
+
+  async function handleRestart() {
+    if (restartState === 'loading') return;
+    if (!confirm('OpenClaw 게이트웨이를 재시작할까요?')) return;
+    setRestartState('loading');
+    setRestartMsg('재시작 중...');
+    try {
+      const r = await api.restart();
+      setRestartState('ok');
+      setRestartMsg(r?.message || '재시작 완료! 잠시 후 새로고침하세요.');
+      setTimeout(() => { setRestartState(null); setRestartMsg(''); reloadAll(); }, 5000);
+    } catch (e) {
+      setRestartState('err');
+      setRestartMsg('재시작 실패: ' + e.message);
+      setTimeout(() => { setRestartState(null); setRestartMsg(''); }, 4000);
+    }
+  }
 
   return (
     <div className="tab-content" style={{overflowY:'auto',height:'100%'}}>
@@ -226,6 +245,47 @@ export default function SystemTab() {
           )}
         </div>
       )}
+
+      {/* OpenClaw 컨트롤 */}
+      <div className="card">
+        <div className="card-title">⚡ OpenClaw 컨트롤</div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom: restartMsg ? 8 : 0}}>
+          <button
+            onClick={handleRestart}
+            disabled={restartState === 'loading'}
+            style={{
+              flex:1, minWidth:120, padding:'8px 12px', borderRadius:8, border:'none',
+              background: restartState === 'loading' ? 'var(--b)' : restartState === 'err' ? 'rgba(239,68,68,.2)' : 'rgba(139,92,246,.2)',
+              color: restartState === 'err' ? 'var(--r)' : 'var(--pl)',
+              fontSize:'.8rem', fontWeight:600, cursor: restartState === 'loading' ? 'not-allowed' : 'pointer',
+              border: '1px solid ' + (restartState === 'err' ? 'rgba(239,68,68,.4)' : 'rgba(139,92,246,.4)'),
+            }}
+          >
+            {restartState === 'loading' ? '⏳ 재시작 중...' : '🔄 게이트웨이 재시작'}
+          </button>
+          <button
+            onClick={reloadAll}
+            style={{
+              flex:1, minWidth:120, padding:'8px 12px', borderRadius:8,
+              background:'rgba(16,185,129,.15)', color:'var(--g)',
+              fontSize:'.8rem', fontWeight:600, cursor:'pointer',
+              border:'1px solid rgba(16,185,129,.3)',
+            }}
+          >
+            🩺 상태 새로고침
+          </button>
+        </div>
+        {restartMsg && (
+          <div style={{
+            padding:'6px 10px', borderRadius:6, fontSize:'.75rem',
+            background: restartState === 'err' ? 'rgba(239,68,68,.1)' : restartState === 'ok' ? 'rgba(16,185,129,.1)' : 'var(--b)',
+            color: restartState === 'err' ? 'var(--r)' : restartState === 'ok' ? 'var(--g)' : 'var(--m)',
+            border: '1px solid ' + (restartState === 'err' ? 'rgba(239,68,68,.3)' : restartState === 'ok' ? 'rgba(16,185,129,.3)' : 'var(--b)'),
+          }}>
+            {restartMsg}
+          </div>
+        )}
+      </div>
 
       {/* 오늘 통계 */}
       <div className="card">

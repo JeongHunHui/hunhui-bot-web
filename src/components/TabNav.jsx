@@ -5,6 +5,7 @@ const TABS = [
   { id: 'todos',   label: '📋', title: '할일' },
   { id: 'logs',    label: '📄', title: '로그' },
   { id: 'stats',   label: '📊', title: '통계' },
+  { id: 'memory',  label: '🧠', title: '메모리' },
   { id: 'settings',label: '⚙️', title: '설정' },
 ];
 

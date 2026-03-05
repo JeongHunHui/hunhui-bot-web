@@ -42,3 +42,5 @@ export const api = {
 };
 
 // (appended)
+// memory API (appended)
+api.memory = () => apiFetch('/dashboard/memory');

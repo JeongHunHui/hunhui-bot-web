@@ -7,11 +7,12 @@ import TodosTab from './components/tabs/TodosTab.jsx';
 import LogsTab from './components/tabs/LogsTab.jsx';
 import StatsTab from './components/tabs/StatsTab.jsx';
 import SettingsTab from './components/tabs/SettingsTab.jsx';
+import MemoryTab from './components/tabs/MemoryTab.jsx';
 import { api } from './api.js';
 
 const TAB_COMPONENTS = {
   chat: ChatTab, system: SystemTab, agents: AgentsTab,
-  todos: TodosTab, logs: LogsTab, stats: StatsTab, settings: SettingsTab,
+  todos: TodosTab, logs: LogsTab, stats: StatsTab, memory: MemoryTab, settings: SettingsTab,
 };
 
 // Tailscale IP 허용 범위
